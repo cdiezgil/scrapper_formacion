@@ -277,6 +277,29 @@ def atarcabos_descargar(
 
 
 # --------------------------------------------------------------------------
+# scoolinary mis-cursos — lista cursos matriculados en tu cuenta (área privada)
+# --------------------------------------------------------------------------
+@scoolinary_app.command("mis-cursos", help="Lista los cursos matriculados en tu cuenta privada de Scoolinary")
+def scoolinary_mis_cursos():
+    from .sites.scoolinary import Scoolinary
+    email = os.getenv("SCOOLINARY_EMAIL", "")
+    password = os.getenv("SCOOLINARY_PASSWORD", "")
+    if not email or not password:
+        console.print(
+            "[red]Faltan credenciales.[/red] "
+            "Define SCOOLINARY_EMAIL y SCOOLINARY_PASSWORD en el fichero .env para acceder a tu área privada."
+        )
+        raise typer.Exit(1)
+    with Scoolinary(email=email, password=password, download_dir=_get_download_dir(), quality=_get_quality()) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.list_my_courses()
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
 # scoolinary cursos — lista cursos de gastronomía y cocina
 # --------------------------------------------------------------------------
 @scoolinary_app.command("cursos", help="Lista cursos de gastronomía en Scoolinary")
