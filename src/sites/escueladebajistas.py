@@ -107,8 +107,11 @@ class EscuelaDeBajistas:
 
                 stream_url = self._resolve_stream_url(video)
 
+                lesson_dir = course_dir / f"{prefix}_{video.safe_name}"
+                lesson_dir.mkdir(parents=True, exist_ok=True)
+
                 if stream_url:
-                    out = course_dir / "videos" / f"{prefix}_{video.safe_name}"
+                    out = lesson_dir / f"{prefix}_{video.safe_name}"
                     success = download_video(
                         url=stream_url,
                         output_path=out,
@@ -121,15 +124,14 @@ class EscuelaDeBajistas:
                 else:
                     console.print(f"[yellow]  ⚠ Sin stream disponible: {video.name} (¿acceso restringido?)[/yellow]")
 
-                # Descargar materiales adjuntos
+                # Descargar materiales adjuntos planos dentro de la carpeta de la lección
                 if video.files:
-                    mat_dir = course_dir / "materiales"
                     for f in video.files:
                         download_file(
                             url=f.url,
-                            output_dir=mat_dir,
+                            output_dir=lesson_dir,
                             filename=f.name,
-                            prefix=prefix,
+                            prefix=None,
                             http_client=self._session.client,
                         )
 

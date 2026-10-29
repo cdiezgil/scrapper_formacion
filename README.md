@@ -37,6 +37,12 @@ python -m src.cli edb descargar --curso fundamentos
 python -m src.cli edb descargar --curso anatomia
 python -m src.cli edb descargar --curso ritmo
 
+# Descargar solo un vídeo concreto de un curso (por slug)
+python -m src.cli edb descargar --curso fundamentos --video mano-derecha
+
+# Descargar con límite de lecciones (ideal para pruebas)
+python -m src.cli edb descargar --curso fundamentos --limite 2
+
 # Descargar todo el catálogo
 python -m src.cli edb descargar --todo
 
@@ -50,13 +56,13 @@ python -m src.cli edb descargar --curso jazz --calidad 720
 downloads/
 └── edb/
     └── 003_Fundamentos_del_bajo_1/
-        ├── videos/
-        │   ├── 001_Postura_corporal.mp4
-        │   ├── 002_Mano_derecha.mp4
-        │   └── ...
-        └── materiales/
-            ├── 001_Postura_corporal.pdf
-            └── ...
+        ├── 001_Postura_corporal/
+        │   └── 001_Postura_corporal.mp4
+        └── 003_Ejercicios_básicos_de_mano_derecha/
+            ├── 003_Ejercicios_básicos_de_mano_derecha.mp4
+            ├── Ejercicios básicos de mano derecha - Base de batería a 80 BPM - EDB.mp3
+            ├── Ejercicios básicos de mano derecha - Ejercicios - EDB.pdf
+            └── Ejercicios básicos de mano derecha - Guitar Pro - EDB.gp
 ```
 
 ## Variables de entorno
