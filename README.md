@@ -8,13 +8,13 @@ Descargador de cursos de plataformas de formación online para visualización of
 |---|---|---|---|
 | `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 40 canciones de repertorio · 170 ejercicios | ✅ Listo |
 | `atarcabos` | [atarcabos.com](https://atarcabos.com) | Cursos náuticos (PER, PNB...) · 11 módulos · 59 lecciones · 121 vídeos · Manuales PDF | ✅ Listo |
+| `scoolinary` | [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina · 460+ cursos · vídeos 1080p/4K Vimeo Pro · Recetarios PDF | ✅ Listo |
 
 ## Plataformas pendientes de implementar
 
 | Plataforma | Notas |
 |---|---|
 | [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online |
-| [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina |
 | [domestika.com](https://domestika.com) | Creatividad y diseño |
 
 ## Instalación
@@ -98,6 +98,24 @@ python -m src.cli atarcabos descargar --curso curso-per-online --modulo 2 --lecc
 
 # Descargar con límite de vídeos (para pruebas)
 python -m src.cli atarcabos descargar --curso curso-per-online --limite 3
+```
+
+### Scoolinary (`scoolinary`)
+
+```bash
+# Listar cursos (catálogo abierto de 460+ cursos en español)
+python -m src.cli scoolinary cursos
+
+# Buscar cursos por término (ej: pan, pizza, fermentacion, ramen, pasteleria)
+python -m src.cli scoolinary cursos --buscar pizza
+python -m src.cli scoolinary cursos --buscar masa
+
+# Descargar curso completo (por slug o ID)
+python -m src.cli scoolinary descargar --curso pizza-napolitana
+python -m src.cli scoolinary descargar --curso roscones-clasicos-creativos
+
+# Descargar con límite de lecciones (para pruebas)
+python -m src.cli scoolinary descargar --curso pizza-napolitana --limite 2
 ```
 
 ### Opciones comunes

@@ -64,12 +64,21 @@ def download_video(
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Formato de calidad
+    # Formato de calidad (priorizando audio en español cuando haya pistas multilingües)
     if quality == "best":
-        fmt = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+        fmt = (
+            "bestvideo[ext=mp4]+bestaudio[language=es]/"
+            "bestvideo[ext=mp4]+bestaudio[language^=es]/"
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]/"
+            "bestvideo+bestaudio[language=es]/"
+            "bestvideo+bestaudio/best"
+        )
     else:
         fmt = (
+            f"bestvideo[height<={quality}][ext=mp4]+bestaudio[language=es]/"
+            f"bestvideo[height<={quality}][ext=mp4]+bestaudio[language^=es]/"
             f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/"
+            f"bestvideo[height<={quality}]+bestaudio[language=es]/"
             f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best"
         )
 

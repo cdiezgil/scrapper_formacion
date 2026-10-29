@@ -22,6 +22,9 @@ app.add_typer(edb_app, name="edb")
 atarcabos_app = typer.Typer(help="Atar Cabos (atarcabos.com)", no_args_is_help=True)
 app.add_typer(atarcabos_app, name="atarcabos")
 
+scoolinary_app = typer.Typer(help="Scoolinary (scoolinary.com)", no_args_is_help=True)
+app.add_typer(scoolinary_app, name="scoolinary")
+
 console = Console()
 
 # --------------------------------------------------------------------------
@@ -266,6 +269,57 @@ def atarcabos_descargar(
                 course_slug=curso,
                 limit=limite,
                 modulo_idx=modulo,
+                leccion_slug=leccion,
+            )
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# scoolinary cursos — lista cursos de gastronomía y cocina
+# --------------------------------------------------------------------------
+@scoolinary_app.command("cursos", help="Lista cursos de gastronomía en Scoolinary")
+def scoolinary_cursos(
+    buscar: str | None = typer.Option(None, "--buscar", "-b",
+        help="Filtrar cursos por término de búsqueda (ej: 'pan', 'pizza', 'fermentacion')."),
+    pagina: int = typer.Option(1, "--pagina", "-p",
+        help="Número de página de resultados."),
+    limite: int = typer.Option(30, "--limite", "-l",
+        help="Cantidad de cursos a mostrar por página."),
+):
+    from .sites.scoolinary import Scoolinary
+    with Scoolinary(download_dir=_get_download_dir(), quality=_get_quality()) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.list_courses(search=buscar, page=pagina, per_page=limite)
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# scoolinary descargar — descarga lecciones, vídeos 1080p y recetarios PDF
+# --------------------------------------------------------------------------
+@scoolinary_app.command("descargar", help="Descarga vídeos y recetarios de un curso de Scoolinary")
+def scoolinary_descargar(
+    curso: str = typer.Option(..., "--curso", "-c",
+        help="Slug o ID del curso (ej: 'roscones-clasicos-creativos' o 1626373)."),
+    leccion: str | None = typer.Option(None, "--leccion",
+        help="Slug o ID de lección concreta."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de lecciones a descargar."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo: best | 1080 | 720 | 480."),
+):
+    from .sites.scoolinary import Scoolinary
+    quality = calidad or _get_quality()
+    with Scoolinary(download_dir=_get_download_dir(), quality=quality) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.download_course(
+                course_slug_or_id=curso,
+                limit=limite,
                 leccion_slug=leccion,
             )
         except Exception as e:
