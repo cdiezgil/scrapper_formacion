@@ -4,9 +4,18 @@ Descargador de cursos de plataformas de formación online para visualización of
 
 ## Plataformas soportadas
 
-| ID | Plataforma | Contenido |
-|---|---|---|
-| `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 288 vídeos · ~55h |
+| ID | Plataforma | Contenido | Estado |
+|---|---|---|---|
+| `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 288 vídeos · ~55h | ✅ Listo |
+
+## Plataformas pendientes de implementar
+
+| Plataforma | Notas |
+|---|---|
+| [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online |
+| [atarcabos.com](https://atarcabos.com) | Nudos y vela |
+| [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina |
+| [domestika.com](https://domestika.com) | Creatividad y diseño |
 
 ## Instalación
 
@@ -62,8 +71,4 @@ downloads/
 ## Requisitos del sistema
 
 - Python 3.11+
-- [ffmpeg](https://ffmpeg.org/) — para mezclar vídeo y audio cuando vienen separados (HLS)
-
-```bash
-brew install ffmpeg
-```
+- ffmpeg — incluido vía `imageio_ffmpeg` (no requiere instalación externa)
