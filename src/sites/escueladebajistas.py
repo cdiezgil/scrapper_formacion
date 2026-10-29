@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
 
-from ..core.auth import NextAuthSession, AuthError
+from ..core.auth import JWTSession, AuthError
 from ..core.graphql import GraphQLClient
 from ..core.models import Course, Video
 from ..core.downloader import download_video, download_file
@@ -30,12 +30,12 @@ class EscuelaDeBajistas:
         self.password = password
         self.download_dir = download_dir / SITE_ID
         self.quality = quality
-        self._session: NextAuthSession | None = None
+        self._session: JWTSession | None = None
         self._gql: GraphQLClient | None = None
 
     # ------------------------------------------------------------------
     def login(self) -> None:
-        self._session = NextAuthSession(BASE_URL)
+        self._session = JWTSession()
         self._session.login(self.email, self.password)
         self._gql = GraphQLClient(API_URL, self._session)
 
@@ -68,7 +68,9 @@ class EscuelaDeBajistas:
         console.print(f"   Destino: {course_dir}")
         console.print(f"   Vídeos: {len(course.videos)}")
 
-        cookies = dict(self._session.client.cookies)
+        # El Bearer token va en el header Authorization — yt-dlp no lo necesita
+        # pero lo pasamos como cookie de sesión para firmados
+        token = self._session.token
 
         with Progress(
             SpinnerColumn(),
@@ -96,7 +98,7 @@ class EscuelaDeBajistas:
                     success = download_video(
                         url=stream_url,
                         output_path=out,
-                        cookies=cookies,
+                        bearer_token=token,
                         quality=self.quality,
                     )
                     if not success:

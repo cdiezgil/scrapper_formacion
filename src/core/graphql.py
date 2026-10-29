@@ -1,7 +1,7 @@
 """Cliente GraphQL que reutiliza la sesión autenticada."""
 from __future__ import annotations
 import httpx
-from .auth import NextAuthSession
+from .auth import JWTSession
 from .models import Course, Video, VideoFile
 
 
@@ -10,9 +10,9 @@ class GQLError(Exception):
 
 
 class GraphQLClient:
-    def __init__(self, api_url: str, session: NextAuthSession):
+    def __init__(self, api_url: str, session: JWTSession):
         self.api_url = api_url
-        self._http = session.client   # comparte cookies de sesión
+        self._http = session.client   # comparte Bearer token
 
     # ------------------------------------------------------------------
     def _query(self, query: str, variables: dict | None = None) -> dict:

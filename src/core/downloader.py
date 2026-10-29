@@ -48,7 +48,7 @@ def _progress_hook(progress_bar: dict):
 def download_video(
     url: str,
     output_path: Path,
-    cookies: dict | None = None,
+    bearer_token: str | None = None,
     quality: str = "best",
     verify_ssl: bool = False,
 ) -> bool:
@@ -86,16 +86,17 @@ def download_video(
         "fragment_retries": 5,
     }
 
-    # Inyectar cookies de sesión si las hay
-    if cookies:
-        ydl_opts["http_headers"] = {
-            "Cookie": "; ".join(f"{k}={v}" for k, v in cookies.items()),
-            "User-Agent": (
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Referer": "https://escueladebajistas.com/",
-        }
+    # Inyectar Bearer token si lo hay
+    headers: dict = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Referer": "https://escueladebajistas.com/",
+    }
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+    ydl_opts["http_headers"] = headers
 
     # Si ya existe el fichero, skip
     existing = list(output_path.parent.glob(output_path.name + ".*"))
