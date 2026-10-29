@@ -19,6 +19,9 @@ app = typer.Typer(help="Scrapper de plataformas de formación", no_args_is_help=
 edb_app = typer.Typer(help="Escuela de Bajistas (escueladebajistas.com)", no_args_is_help=True)
 app.add_typer(edb_app, name="edb")
 
+atarcabos_app = typer.Typer(help="Atar Cabos (atarcabos.com)", no_args_is_help=True)
+app.add_typer(atarcabos_app, name="atarcabos")
+
 console = Console()
 
 # --------------------------------------------------------------------------
@@ -41,6 +44,18 @@ def _edb_credentials() -> tuple[str, str]:
         console.print(
             "[red]Faltan credenciales.[/red] "
             "Define EDB_EMAIL y EDB_PASSWORD en el fichero .env"
+        )
+        raise typer.Exit(1)
+    return email, password
+
+
+def _atarcabos_credentials() -> tuple[str, str]:
+    email = os.getenv("ATARCABOS_EMAIL", "")
+    password = os.getenv("ATARCABOS_PASSWORD", "")
+    if not email or not password:
+        console.print(
+            "[red]Faltan credenciales.[/red] "
+            "Define ATARCABOS_EMAIL y ATARCABOS_PASSWORD en el fichero .env"
         )
         raise typer.Exit(1)
     return email, password
@@ -204,6 +219,55 @@ def edb_descargar_ejercicios(
         try:
             scrapper.login()
             scrapper.download_ejercicios(limit=limite, exercise_slug=ejercicio)
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# atarcabos cursos — lista cursos matriculados
+# --------------------------------------------------------------------------
+@atarcabos_app.command("cursos", help="Lista los cursos matriculados en Atar Cabos")
+def atarcabos_cursos():
+    from .sites.atarcabos import AtarCabos
+    email, password = _atarcabos_credentials()
+    with AtarCabos(email, password, _get_download_dir(), _get_quality()) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.list_courses()
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# atarcabos descargar — descarga módulos, lecciones, vídeos y manuales
+# --------------------------------------------------------------------------
+@atarcabos_app.command("descargar", help="Descarga vídeos y manuales de un curso de Atar Cabos")
+def atarcabos_descargar(
+    curso: str = typer.Option("curso-per-online", "--curso", "-c",
+        help="Slug del curso (ej: 'curso-per-online')."),
+    modulo: int | None = typer.Option(None, "--modulo", "-m",
+        help="Número de módulo concreto (1 a 11)."),
+    leccion: str | None = typer.Option(None, "--leccion",
+        help="Slug de la lección concreta (ej: 'nomenclatura-basica')."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de vídeos a descargar (ideal para pruebas)."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo: best | 1080 | 720 | 480."),
+):
+    from .sites.atarcabos import AtarCabos
+    email, password = _atarcabos_credentials()
+    quality = calidad or _get_quality()
+    with AtarCabos(email, password, _get_download_dir(), quality) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.download_course(
+                course_slug=curso,
+                limit=limite,
+                modulo_idx=modulo,
+                leccion_slug=leccion,
+            )
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)

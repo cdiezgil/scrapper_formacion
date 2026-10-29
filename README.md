@@ -7,13 +7,13 @@ Descargador de cursos de plataformas de formación online para visualización of
 | ID | Plataforma | Contenido | Estado |
 |---|---|---|---|
 | `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 40 canciones de repertorio · 170 ejercicios | ✅ Listo |
+| `atarcabos` | [atarcabos.com](https://atarcabos.com) | Cursos náuticos (PER, PNB...) · 11 módulos · 59 lecciones · 121 vídeos · Manuales PDF | ✅ Listo |
 
 ## Plataformas pendientes de implementar
 
 | Plataforma | Notas |
 |---|---|
 | [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online |
-| [atarcabos.com](https://atarcabos.com) | Nudos y vela |
 | [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina |
 | [domestika.com](https://domestika.com) | Creatividad y diseño |
 
@@ -79,6 +79,25 @@ python -m src.cli edb descargar-ejercicios --limite 5
 
 # Descargar todos los ejercicios
 python -m src.cli edb descargar-ejercicios --todo
+```
+
+### Atar Cabos (`atarcabos`)
+
+```bash
+# Listar cursos matriculados
+python -m src.cli atarcabos cursos
+
+# Descargar curso completo (por defecto: curso-per-online)
+python -m src.cli atarcabos descargar --curso curso-per-online
+
+# Descargar solo un módulo concreto (1 a 11)
+python -m src.cli atarcabos descargar --curso curso-per-online --modulo 2
+
+# Descargar solo una lección concreta
+python -m src.cli atarcabos descargar --curso curso-per-online --modulo 2 --leccion nomenclatura-basica
+
+# Descargar con límite de vídeos (para pruebas)
+python -m src.cli atarcabos descargar --curso curso-per-online --limite 3
 ```
 
 ### Opciones comunes
