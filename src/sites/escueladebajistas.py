@@ -46,14 +46,15 @@ class EscuelaDeBajistas:
         console.print(f"\n[bold]📚 {len(courses)} cursos disponibles:[/bold]")
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("ID", style="dim", width=5)
-        table.add_column("Curso")
+        table.add_column("Curso", style="bold")
+        table.add_column("Slug (--curso)", style="green")
         table.add_column("Vídeos", justify="right")
         table.add_column("Duración total", justify="right")
-        for c in courses:
+        for c in sorted(courses, key=lambda x: int(x.id) if x.id.isdigit() else 999):
             total_s = sum(v.duration for v in c.videos)
             h, rem = divmod(total_s, 3600)
             m = rem // 60
-            table.add_row(c.id, c.name, str(len(c.videos)), f"{h}h {m}m")
+            table.add_row(c.id, c.name, c.slug, str(len(c.videos)), f"{h}h {m:02d}m")
         console.print(table)
         return courses
 
