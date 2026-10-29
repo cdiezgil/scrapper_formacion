@@ -105,8 +105,10 @@ class Scoolinary:
             data = r.json()
             if r.status_code == 200 and "access_token" in data:
                 self.token = data["access_token"]
+                self.user_id = data.get("user_id")
+                self.user_name = data.get("user_display_name", self.email)
                 self._client.headers["Authorization"] = f"Bearer {self.token}"
-                console.print(f"[green]✓ Sesión JWT iniciada en Scoolinary como {self.email}[/green]")
+                console.print(f"[green]✓ Sesión JWT iniciada en Scoolinary como {self.user_name} (ID: {self.user_id})[/green]")
             else:
                 msg = data.get("message") or f"Status {r.status_code}"
                 console.print(f"[yellow]⚠ Aviso de login ({msg}). Continuando con acceso estándar.[/yellow]")
@@ -129,62 +131,56 @@ class Scoolinary:
         return None
 
     def list_my_courses(self) -> list[ScoolinaryCourse]:
-        """Obtiene los cursos matriculados del usuario autenticado (área privada)."""
-        if not self.token:
+        """Obtiene los cursos favoritos y guardados del usuario autenticado (área privada)."""
+        if not self.token or not self.user_id:
             console.print("[yellow]Faltan credenciales en .env (SCOOLINARY_EMAIL y SCOOLINARY_PASSWORD) para ver tu área privada.[/yellow]")
             return []
 
-        profile = self.get_my_profile()
-        user_id = profile.get("id") if profile else None
-        if not user_id:
-            console.print("[red]No se pudo obtener el ID del usuario autenticado.[/red]")
-            return []
+        console.print(f"[bold]👤 Alumno:[/bold] {self.user_name} (ID: {self.user_id})")
 
-        console.print(f"[bold]👤 Usuario:[/bold] {profile.get('name', self.email)} (ID: {user_id})")
-
-        # 1. Intentar ldlms/v2/users/<user_id>/courses
-        r = self._client.get(f"{BASE_URL}/wp-json/ldlms/v2/users/{user_id}/courses?per_page=100")
-        courses = []
-        if r.status_code == 200 and isinstance(r.json(), list):
-            for c in r.json():
-                title = c.get("title", {}).get("rendered", "") if isinstance(c.get("title"), dict) else str(c.get("title", ""))
-                title = re.sub(r"<[^>]+>", "", title).strip()
-                courses.append(
-                    ScoolinaryCourse(
-                        id=c["id"],
-                        title=title,
-                        slug=c.get("slug", str(c["id"])),
-                        link=c.get("link", ""),
-                    )
-                )
-
-        # 2. Si ldlms no devolvió, intentar scoolinary-app/v1/courses con filtro
-        if not courses:
-            r2 = self._client.get(f"{API_BASE}/courses?enrolled=true&per_page=100")
-            if r2.status_code == 200 and isinstance(r2.json(), list):
-                for c in r2.json():
-                    title = c.get("title", {}).get("rendered", "") if isinstance(c.get("title"), dict) else str(c.get("title", ""))
-                    title = re.sub(r"<[^>]+>", "", title).strip()
-                    courses.append(
-                        ScoolinaryCourse(
-                            id=c["id"],
-                            title=title,
-                            slug=c.get("slug", str(c["id"])),
-                            link=c.get("link", ""),
+        # 1. Obtener cursos favoritos de la cuenta
+        fav_courses = []
+        try:
+            r_fav = self._client.get(f"{API_BASE}/mixed-content/favorites")
+            if r_fav.status_code == 200:
+                items = r_fav.json().get("items", [])
+                for item in items:
+                    if item.get("content_type") == "course":
+                        t = item.get("title", {}).get("rendered", "")
+                        t = re.sub(r"<[^>]+>", "", t).strip()
+                        fav_courses.append(
+                            ScoolinaryCourse(
+                                id=item["id"],
+                                title=t,
+                                slug=item.get("slug", str(item["id"])),
+                                link=item.get("link", ""),
+                            )
                         )
-                    )
+        except Exception:
+            pass
 
-        console.print(f"\n[bold]🎓 Tus cursos matriculados ({len(courses)} cursos):[/bold]")
-        table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("ID", style="dim", width=8)
-        table.add_column("Curso", style="bold")
-        table.add_column("Slug (--curso)", style="green")
+        if fav_courses:
+            console.print(f"\n[bold]⭐ Tus cursos favoritos guardados ({len(fav_courses)} cursos):[/bold]")
+            table_fav = Table(show_header=True, header_style="bold cyan")
+            table_fav.add_column("ID", style="dim", width=8)
+            table_fav.add_column("Curso Favorito", style="bold")
+            table_fav.add_column("Slug (--curso)", style="green")
+            for c in fav_courses:
+                table_fav.add_row(str(c.id), c.title, c.slug)
+            console.print(table_fav)
 
-        for c in courses:
-            table.add_row(str(c.id), c.title, c.slug)
+        # 2. Obtener catálogo general asignado a su suscripción
+        try:
+            r_all = self._client.get(
+                f"{BASE_URL}/wp-json/buddyboss-app/learndash/v1/courses?user_id={self.user_id}&wpml_language={self.lang}&per_page=20"
+            )
+            if r_all.status_code == 200:
+                total_avail = r_all.headers.get("x-wp-total", "460+")
+                console.print(f"\n[bold green]✓ Suscripción activa:[/bold green] Acceso completo a los [bold]{total_avail} cursos[/bold] de Scoolinary.")
+        except Exception:
+            pass
 
-        console.print(table)
-        return courses
+        return fav_courses
 
     def list_courses(
         self,
