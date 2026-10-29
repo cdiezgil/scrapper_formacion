@@ -6,7 +6,10 @@ Scrapper para escueladebajistas.com
   - Materiales: ficheros descargables vía httpx
 """
 from __future__ import annotations
+import json
+import re
 from pathlib import Path
+import httpx
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
@@ -59,31 +62,88 @@ class EscuelaDeBajistas:
         return courses
 
     # ------------------------------------------------------------------
-    def download_course(
+    def _get_section_videos(self, section: str) -> list[Video]:
+        """Obtiene la lista de vídeos de una sección SSG (ejercicios, repertorio, etc.)."""
+        client = self._session.client if self._session else httpx.Client(verify=False)
+        r = client.get(f"{BASE_URL}/{section}")
+        r.raise_for_status()
+        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>([^<]+)</script>', r.text)
+        if not m:
+            raise RuntimeError(f"No se pudo extraer __NEXT_DATA__ de /{section}")
+        data = json.loads(m.group(1))
+        raw_videos = data.get("props", {}).get("pageProps", {}).get("videos", [])
+        return [
+            Video(
+                id=str(v["id"]),
+                name=v["name"],
+                slug=v["slug"],
+                duration=v.get("duration", 0),
+                level=v.get("level"),
+                is_public=v.get("isPublic", False),
+                resource_path=v.get("resourcePath") or f"/{section}/{v['slug']}",
+                image_url=v.get("imageUrl"),
+                description=v.get("description"),
+            )
+            for v in raw_videos
+        ]
+
+    # ------------------------------------------------------------------
+    def list_repertorio(self) -> list[Video]:
+        """Lista las canciones del repertorio disponibles."""
+        videos = self._get_section_videos("repertorio")
+        console.print(f"\n[bold]🎸 Repertorio ({len(videos)} canciones disponibles):[/bold]")
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("ID", style="dim", width=5)
+        table.add_column("Canción", style="bold")
+        table.add_column("Slug (--cancion)", style="green")
+        table.add_column("Nivel", justify="center")
+        table.add_column("Duración", justify="right")
+        for v in videos:
+            table.add_row(v.id, v.name, v.slug, v.level or "-", v.duration_str)
+        console.print(table)
+        return videos
+
+    # ------------------------------------------------------------------
+    def list_ejercicios(self) -> list[Video]:
+        """Lista los ejercicios disponibles."""
+        videos = self._get_section_videos("ejercicios")
+        console.print(f"\n[bold]🏋️ Ejercicios ({len(videos)} lecciones disponibles):[/bold]")
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("ID", style="dim", width=5)
+        table.add_column("Ejercicio", style="bold")
+        table.add_column("Slug (--ejercicio)", style="green")
+        table.add_column("Nivel", justify="center")
+        table.add_column("Duración", justify="right")
+        for v in videos:
+            table.add_row(v.id, v.name, v.slug, v.level or "-", v.duration_str)
+        console.print(table)
+        return videos
+
+    # ------------------------------------------------------------------
+    def _download_video_list(
         self,
-        course: Course,
+        videos: list[Video],
+        target_dir: Path,
+        title: str,
         limit: int | None = None,
         video_slug: str | None = None,
     ) -> None:
-        """Descarga todos los vídeos y materiales de un curso (o filtrados por límite/slug)."""
+        """Descarga una lista de vídeos en target_dir creando una carpeta por lección."""
         assert self._session and self._gql
-        course_dir = self.download_dir / f"{course.id:>03}_{course.safe_name}"
-        course_dir.mkdir(parents=True, exist_ok=True)
+        target_dir.mkdir(parents=True, exist_ok=True)
 
-        videos_to_process = list(course.videos)
+        videos_to_process = list(videos)
         if video_slug:
             videos_to_process = [v for v in videos_to_process if v.slug == video_slug]
             if not videos_to_process:
-                console.print(f"[red]Vídeo no encontrado en {course.name}: {video_slug}[/red]")
+                console.print(f"[red]Vídeo no encontrado en {title}: {video_slug}[/red]")
                 return
         elif limit and limit > 0:
             videos_to_process = videos_to_process[:limit]
 
-        console.print(f"\n[bold cyan]📥 Descargando:[/bold cyan] {course.name}")
-        console.print(f"   Destino: {course_dir}")
-        console.print(f"   Vídeos a descargar: {len(videos_to_process)} (de {len(course.videos)})")
-
-        token = self._session.token
+        console.print(f"\n[bold cyan]📥 Descargando:[/bold cyan] {title}")
+        console.print(f"   Destino: {target_dir}")
+        console.print(f"   Vídeos a descargar: {len(videos_to_process)} (de {len(videos)})")
 
         with Progress(
             SpinnerColumn(),
@@ -96,19 +156,18 @@ class EscuelaDeBajistas:
             task = progress.add_task("Vídeos", total=len(videos_to_process))
 
             for idx, video in enumerate(videos_to_process, 1):
-                # Usar el índice original del curso si es posible
-                orig_idx = next((i for i, v in enumerate(course.videos, 1) if v.id == video.id), idx)
+                orig_idx = next((i for i, v in enumerate(videos, 1) if v.id == video.id), idx)
                 prefix = f"{orig_idx:03d}"
                 progress.update(task, description=f"[{idx}/{len(videos_to_process)}] {video.name[:40]}")
 
-                # Obtener stream URL para este vídeo
+                # Obtener stream URL y ficheros actualizados para este vídeo
                 detail = self._gql.get_video_stream(video.id)
                 if detail:
-                    video = detail  # actualizar con hlsResourcePath y streamId
+                    video = detail
 
                 stream_url = self._resolve_stream_url(video)
 
-                lesson_dir = course_dir / f"{prefix}_{video.safe_name}"
+                lesson_dir = target_dir / f"{prefix}_{video.safe_name}"
                 lesson_dir.mkdir(parents=True, exist_ok=True)
 
                 if stream_url:
@@ -116,7 +175,7 @@ class EscuelaDeBajistas:
                     success = download_video(
                         url=stream_url,
                         output_path=out,
-                        bearer_token=None,  # No inyectar Bearer: Hetzner S3 presigned rechaza Authorization header
+                        bearer_token=None,  # Hetzner S3 rechaza Authorization header
                         referer=f"{BASE_URL}/",
                         quality=self.quality,
                     )
@@ -125,7 +184,7 @@ class EscuelaDeBajistas:
                 else:
                     console.print(f"[yellow]  ⚠ Sin stream disponible: {video.name} (¿acceso restringido?)[/yellow]")
 
-                # Descargar materiales adjuntos planos dentro de la carpeta de la lección
+                # Descargar materiales adjuntos en la carpeta de la lección
                 if video.files:
                     for f in video.files:
                         download_file(
@@ -138,7 +197,58 @@ class EscuelaDeBajistas:
 
                 progress.advance(task)
 
-        console.print(f"[green]✓ Curso completado:[/green] {course.name}")
+        console.print(f"[green]✓ Completado:[/green] {title}")
+
+    # ------------------------------------------------------------------
+    def download_course(
+        self,
+        course: Course,
+        limit: int | None = None,
+        video_slug: str | None = None,
+    ) -> None:
+        """Descarga todos los vídeos y materiales de un curso."""
+        course_dir = self.download_dir / f"{course.id:>03}_{course.safe_name}"
+        self._download_video_list(
+            videos=course.videos,
+            target_dir=course_dir,
+            title=course.name,
+            limit=limit,
+            video_slug=video_slug,
+        )
+
+    # ------------------------------------------------------------------
+    def download_repertorio(
+        self,
+        limit: int | None = None,
+        song_slug: str | None = None,
+    ) -> None:
+        """Descarga canciones del repertorio con tabs y backing tracks."""
+        rep_dir = self.download_dir / "repertorio"
+        videos = self._get_section_videos("repertorio")
+        self._download_video_list(
+            videos=videos,
+            target_dir=rep_dir,
+            title="Repertorio",
+            limit=limit,
+            video_slug=song_slug,
+        )
+
+    # ------------------------------------------------------------------
+    def download_ejercicios(
+        self,
+        limit: int | None = None,
+        exercise_slug: str | None = None,
+    ) -> None:
+        """Descarga lecciones de ejercicios con partituras y bases de audio."""
+        ej_dir = self.download_dir / "ejercicios"
+        videos = self._get_section_videos("ejercicios")
+        self._download_video_list(
+            videos=videos,
+            target_dir=ej_dir,
+            title="Ejercicios",
+            limit=limit,
+            video_slug=exercise_slug,
+        )
 
     # ------------------------------------------------------------------
     def download_all(self, limit: int | None = None) -> None:

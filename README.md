@@ -6,7 +6,7 @@ Descargador de cursos de plataformas de formación online para visualización of
 
 | ID | Plataforma | Contenido | Estado |
 |---|---|---|---|
-| `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 288 vídeos · ~55h | ✅ Listo |
+| `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 40 canciones de repertorio · 170 ejercicios | ✅ Listo |
 
 ## Plataformas pendientes de implementar
 
@@ -28,6 +28,8 @@ cp .env.example .env
 
 ## Uso
 
+### Cursos
+
 ```bash
 # Listar cursos disponibles
 python -m src.cli edb cursos
@@ -43,11 +45,47 @@ python -m src.cli edb descargar --curso fundamentos --video mano-derecha
 # Descargar con límite de lecciones (ideal para pruebas)
 python -m src.cli edb descargar --curso fundamentos --limite 2
 
-# Descargar todo el catálogo
+# Descargar todo el catálogo de cursos
 python -m src.cli edb descargar --todo
+```
 
+### Repertorio (40 canciones)
+
+```bash
+# Listar canciones disponibles
+python -m src.cli edb repertorio
+
+# Descargar una canción concreta (con tabs y backing tracks)
+python -m src.cli edb descargar-repertorio --cancion queen-another-one-bites-the-dust
+
+# Descargar con límite
+python -m src.cli edb descargar-repertorio --limite 3
+
+# Descargar todo el repertorio
+python -m src.cli edb descargar-repertorio --todo
+```
+
+### Ejercicios (170 lecciones de técnica/groove)
+
+```bash
+# Listar ejercicios disponibles
+python -m src.cli edb ejercicios
+
+# Descargar un ejercicio concreto (con partituras y bases de audio)
+python -m src.cli edb descargar-ejercicios --ejercicio 170-groove-disco-funk-con-octavas-am
+
+# Descargar con límite
+python -m src.cli edb descargar-ejercicios --limite 5
+
+# Descargar todos los ejercicios
+python -m src.cli edb descargar-ejercicios --todo
+```
+
+### Opciones comunes
+
+```bash
 # Calidad concreta (sobreescribe .env)
-python -m src.cli edb descargar --curso jazz --calidad 720
+python -m src.cli edb descargar --curso ritmo --calidad 720
 ```
 
 ## Estructura de descargas
@@ -55,14 +93,24 @@ python -m src.cli edb descargar --curso jazz --calidad 720
 ```
 downloads/
 └── edb/
-    └── 003_Fundamentos_del_bajo_1/
-        ├── 001_Postura_corporal/
-        │   └── 001_Postura_corporal.mp4
-        └── 003_Ejercicios_básicos_de_mano_derecha/
-            ├── 003_Ejercicios_básicos_de_mano_derecha.mp4
-            ├── Ejercicios básicos de mano derecha - Base de batería a 80 BPM - EDB.mp3
-            ├── Ejercicios básicos de mano derecha - Ejercicios - EDB.pdf
-            └── Ejercicios básicos de mano derecha - Guitar Pro - EDB.gp
+    ├── 003_Fundamentos_del_bajo_1/
+    │   ├── 001_Postura_corporal/
+    │   │   └── 001_Postura_corporal.mp4
+    │   └── 003_Ejercicios_básicos_de_mano_derecha/
+    │       ├── 003_Ejercicios_básicos_de_mano_derecha.mp4
+    │       ├── Ejercicios básicos de mano derecha - Base de batería a 80 BPM - EDB.mp3
+    │       ├── Ejercicios básicos de mano derecha - Ejercicios - EDB.pdf
+    │       └── Ejercicios básicos de mano derecha - Guitar Pro - EDB.gp
+    ├── repertorio/
+    │   └── 001_Queen_-_Another_One_Bites_The_Dust/
+    │       ├── 001_Queen_-_Another_One_Bites_The_Dust.mp4
+    │       └── Queen - Another One Bites The Dust - Tabs - EDB.pdf
+    └── ejercicios/
+        └── 001_170_-_Groove_disco-funk_con_Octavas_en_Am/
+            ├── 001_170_-_Groove_disco-funk_con_Octavas_en_Am.mp4
+            ├── #170 - Groove disco-funk con Octavas en Am - Base 90bpm - EDB.mp3
+            ├── #170 - Groove disco-funk con Octavas en Am - Guitar Pro - EDB.gp
+            └── #170 - Groove disco-funk con Octavas en Am - Tabs - EDB.pdf
 ```
 
 ## Variables de entorno
