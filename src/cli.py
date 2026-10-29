@@ -69,6 +69,10 @@ def edb_cursos():
 def edb_descargar(
     curso: str | None = typer.Option(None, "--curso", "-c",
         help="Slug del curso (ej: 'fundamentos'). Sin este flag, descarga todo."),
+    video: str | None = typer.Option(None, "--video", "-v",
+        help="Slug del vídeo concreto a descargar dentro del curso (ej: 'mano-derecha')."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de vídeos a descargar por curso (ideal para pruebas)."),
     todo: bool = typer.Option(False, "--todo", "-a",
         help="Descargar todos los cursos"),
     calidad: str = typer.Option("", "--calidad", "-q",
@@ -81,7 +85,8 @@ def edb_descargar(
             Panel(
                 "Indica [bold]--curso SLUG[/bold] o [bold]--todo[/bold]\n\n"
                 "Ejemplos:\n"
-                "  python -m src.cli edb descargar --curso fundamentos\n"
+                "  python -m src.cli edb descargar --curso fundamentos --limite 1\n"
+                "  python -m src.cli edb descargar --curso fundamentos --video mano-derecha\n"
                 "  python -m src.cli edb descargar --todo",
                 title="¿Qué descargar?",
                 border_style="yellow",
@@ -96,9 +101,9 @@ def edb_descargar(
         try:
             scrapper.login()
             if todo:
-                scrapper.download_all()
+                scrapper.download_all(limit=limite)
             else:
-                scrapper.download_by_slug(curso)  # type: ignore
+                scrapper.download_by_slug(curso, limit=limite, video_slug=video)  # type: ignore
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)

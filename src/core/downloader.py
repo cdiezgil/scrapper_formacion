@@ -49,6 +49,7 @@ def download_video(
     url: str,
     output_path: Path,
     bearer_token: str | None = None,
+    referer: str | None = None,
     quality: str = "best",
     verify_ssl: bool = False,
 ) -> bool:
@@ -86,14 +87,14 @@ def download_video(
         "fragment_retries": 5,
     }
 
-    # Inyectar Bearer token si lo hay
     headers: dict = {
         "User-Agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         ),
-        "Referer": "https://escueladebajistas.com/",
     }
+    if referer:
+        headers["Referer"] = referer
     if bearer_token:
         headers["Authorization"] = f"Bearer {bearer_token}"
     ydl_opts["http_headers"] = headers
@@ -115,27 +116,62 @@ def download_video(
 
 def download_file(
     url: str,
-    output_path: Path,
+    output_dir: Path,
+    filename: str | None = None,
+    prefix: str | None = None,
     http_client: httpx.Client | None = None,
+    max_retries: int = 3,
 ) -> bool:
     """
-    Descarga un fichero binario (PDF, etc.) con httpx.
+    Descarga un fichero binario (PDF, audio, etc.) con httpx.
+    Resuelve el nombre real desde Content-Disposition (si está disponible),
+    o desde filename/url, y lo guarda en output_dir. Reintenta en caso de fallo.
     """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_path.exists():
-        console.print(f"[dim]  ↩ Ya existe: {output_path.name}[/dim]")
-        return True
+    import re
+    import time
+    from urllib.parse import unquote
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     client = http_client or httpx.Client(verify=False, follow_redirects=True, timeout=60)
     try:
-        with client.stream("GET", url) as r:
-            r.raise_for_status()
-            with open(output_path, "wb") as f:
-                for chunk in r.iter_bytes(chunk_size=8192):
-                    f.write(chunk)
-        return True
-    except Exception as e:
-        console.print(f"[red]  ✗ Error descargando {url}: {e}[/red]")
+        for attempt in range(1, max_retries + 1):
+            try:
+                with client.stream("GET", url) as r:
+                    r.raise_for_status()
+
+                    resolved_name = filename
+                    cd = r.headers.get("content-disposition", "")
+                    if cd:
+                        m = re.search(r"""filename\*?=(?:UTF-8'')?"?([^";]+)"?""", cd, re.I)
+                        if m:
+                            resolved_name = unquote(m.group(1).strip())
+
+                    if not resolved_name:
+                        resolved_name = Path(url.split("?")[0]).name or "material"
+
+                    # Sanitizar caracteres no válidos para el sistema de archivos
+                    safe_name = re.sub(r'[\\/*?:"<>|]', '_', resolved_name).strip()
+                    final_name = f"{prefix}_{safe_name}" if prefix else safe_name
+
+                    target_path = output_dir / final_name
+                    if target_path.exists() and target_path.stat().st_size > 0:
+                        console.print(f"[dim]  ↩ Ya existe material: {target_path.name}[/dim]")
+                        return True
+
+                    with open(target_path, "wb") as f:
+                        for chunk in r.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                    console.print(f"[green]  ✓ Material: {target_path.name}[/green]")
+                    return True
+            except (httpx.TimeoutException, httpx.NetworkError) as e:
+                if attempt < max_retries:
+                    time.sleep(1)
+                    continue
+                console.print(f"[red]  ✗ Error descargando tras {max_retries} intentos: {url} ({e})[/red]")
+                return False
+            except Exception as e:
+                console.print(f"[red]  ✗ Error descargando {url}: {e}[/red]")
+                return False
         return False
     finally:
         if http_client is None:

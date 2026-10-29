@@ -58,18 +58,30 @@ class EscuelaDeBajistas:
         return courses
 
     # ------------------------------------------------------------------
-    def download_course(self, course: Course) -> None:
-        """Descarga todos los vídeos y materiales de un curso."""
+    def download_course(
+        self,
+        course: Course,
+        limit: int | None = None,
+        video_slug: str | None = None,
+    ) -> None:
+        """Descarga todos los vídeos y materiales de un curso (o filtrados por límite/slug)."""
         assert self._session and self._gql
         course_dir = self.download_dir / f"{course.id:>03}_{course.safe_name}"
         course_dir.mkdir(parents=True, exist_ok=True)
 
+        videos_to_process = list(course.videos)
+        if video_slug:
+            videos_to_process = [v for v in videos_to_process if v.slug == video_slug]
+            if not videos_to_process:
+                console.print(f"[red]Vídeo no encontrado en {course.name}: {video_slug}[/red]")
+                return
+        elif limit and limit > 0:
+            videos_to_process = videos_to_process[:limit]
+
         console.print(f"\n[bold cyan]📥 Descargando:[/bold cyan] {course.name}")
         console.print(f"   Destino: {course_dir}")
-        console.print(f"   Vídeos: {len(course.videos)}")
+        console.print(f"   Vídeos a descargar: {len(videos_to_process)} (de {len(course.videos)})")
 
-        # El Bearer token va en el header Authorization — yt-dlp no lo necesita
-        # pero lo pasamos como cookie de sesión para firmados
         token = self._session.token
 
         with Progress(
@@ -80,11 +92,13 @@ class EscuelaDeBajistas:
             TimeRemainingColumn(),
             console=console,
         ) as progress:
-            task = progress.add_task("Vídeos", total=len(course.videos))
+            task = progress.add_task("Vídeos", total=len(videos_to_process))
 
-            for idx, video in enumerate(course.videos, 1):
-                prefix = f"{idx:03d}"
-                progress.update(task, description=f"[{idx}/{len(course.videos)}] {video.name[:40]}")
+            for idx, video in enumerate(videos_to_process, 1):
+                # Usar el índice original del curso si es posible
+                orig_idx = next((i for i, v in enumerate(course.videos, 1) if v.id == video.id), idx)
+                prefix = f"{orig_idx:03d}"
+                progress.update(task, description=f"[{idx}/{len(videos_to_process)}] {video.name[:40]}")
 
                 # Obtener stream URL para este vídeo
                 detail = self._gql.get_video_stream(video.id)
@@ -98,7 +112,8 @@ class EscuelaDeBajistas:
                     success = download_video(
                         url=stream_url,
                         output_path=out,
-                        bearer_token=token,
+                        bearer_token=None,  # No inyectar Bearer: Hetzner S3 presigned rechaza Authorization header
+                        referer=f"{BASE_URL}/",
                         quality=self.quality,
                     )
                     if not success:
@@ -107,51 +122,65 @@ class EscuelaDeBajistas:
                     console.print(f"[yellow]  ⚠ Sin stream disponible: {video.name} (¿acceso restringido?)[/yellow]")
 
                 # Descargar materiales adjuntos
-                for f in video.files:
-                    ext = Path(f.url).suffix or ""
-                    mat_path = course_dir / "materiales" / f"{prefix}_{video.safe_name}{ext}"
-                    download_file(f.url, mat_path, self._session.client)
+                if video.files:
+                    mat_dir = course_dir / "materiales"
+                    for f in video.files:
+                        download_file(
+                            url=f.url,
+                            output_dir=mat_dir,
+                            filename=f.name,
+                            prefix=prefix,
+                            http_client=self._session.client,
+                        )
 
                 progress.advance(task)
 
         console.print(f"[green]✓ Curso completado:[/green] {course.name}")
 
     # ------------------------------------------------------------------
-    def download_all(self) -> None:
+    def download_all(self, limit: int | None = None) -> None:
         courses = self.list_courses()
         for course in courses:
-            self.download_course(course)
+            self.download_course(course, limit=limit)
 
     # ------------------------------------------------------------------
-    def download_by_slug(self, slug: str) -> None:
+    def download_by_slug(
+        self,
+        slug: str,
+        limit: int | None = None,
+        video_slug: str | None = None,
+    ) -> None:
         courses = self._gql.list_courses()  # type: ignore
         match = next((c for c in courses if c.slug == slug), None)
         if not match:
             console.print(f"[red]Curso no encontrado: {slug}[/red]")
             console.print(f"Slugs disponibles: {', '.join(c.slug for c in courses)}")
             return
-        self.download_course(match)
+        self.download_course(match, limit=limit, video_slug=video_slug)
 
     # ------------------------------------------------------------------
     def _resolve_stream_url(self, video: Video) -> str | None:
         """
         Estrategia de resolución de URL de stream:
           1. hlsResourcePath (URL directa de HLS m3u8)
-          2. streamId → URL de Vimeo embebida (yt-dlp la procesa)
-          3. Si isPublic → intentar URL de la página directamente (yt-dlp extraerá el player)
+          2. streamId:
+             - URL completa (http/https)
+             - ID numérico -> Vimeo
+             - ID alfanumérico -> Cloudflare Stream
+          3. Si isPublic -> intentar URL de la página
         """
         if video.hls_resource_path:
             return video.hls_resource_path
 
         if video.stream_id:
-            # streamId puede ser un ID de Vimeo o de otro proveedor
-            # yt-dlp intenta Vimeo por defecto con IDs numéricos
+            if video.stream_id.startswith(("http://", "https://")):
+                return video.stream_id
             if video.stream_id.isdigit():
                 return f"https://vimeo.com/{video.stream_id}"
-            return video.stream_id
+            # Cloudflare Stream ID usado por escueladebajistas.com
+            return f"https://customer-ghofqolwkgllimz8.cloudflarestream.com/{video.stream_id}/manifest/video.m3u8"
 
         if video.is_public:
-            # Para vídeos públicos, yt-dlp puede extraer el player directamente
             return f"{BASE_URL}{video.resource_path}"
 
         return None
