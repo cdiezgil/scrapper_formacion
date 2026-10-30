@@ -129,6 +129,9 @@ python -m src.cli scottsbass cursos
 # Descargar materiales de todos los cursos disponibles
 python -m src.cli scottsbass descargar --todo
 
+# Descargar el curso especial completo Motown Masters de Danny Mo (Vídeos HD, Workbooks y Play Alongs)
+python -m src.cli scottsbass descargar --curso motown-masters
+
 # Descargar materiales de un curso concreto (workbooks PDF y audio tracks ZIP)
 python -m src.cli scottsbass descargar --curso the-bass-players-phrasebook-learn-the-lines-steal-the-language
 ```

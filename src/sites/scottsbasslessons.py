@@ -27,6 +27,23 @@ BASE_URL = "https://scottsbasslessons.com"
 SITE_ID = "scottsbasslessons"
 COOKIES_FILE = Path(".scottsbass_cookies.json")
 
+MOTOWN_MASTERS_FILES = [
+    ("MoMashupLesson1.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson1.zip"),
+    ("MoMashupLesson2.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson2.zip"),
+    ("MoMashupLesson3.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson3.zip"),
+    ("MoMashupLesson4.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson4.zip"),
+    ("MoMashupLesson5.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson5.zip"),
+    ("MoMashupLesson6.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson6.zip"),
+    ("MoMashupLesson7.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson7.zip"),
+    ("MoMashupLesson8.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupLesson8.zip"),
+    ("MoMashupFinalThoughts.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MoMashupFinalThoughts.zip"),
+    ("MotownMastersLiveSession1.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MotownMastersLiveSession1.zip"),
+    ("MotownMastersLiveSession2.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MotownMastersLiveSession2.zip"),
+    ("MotownMastersLiveSession3.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/MotownMastersLiveSession3.zip"),
+    ("Play Alongs.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/Play+Alongs.zip"),
+    ("Workbooks.zip", "https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/Workbooks.zip"),
+]
+
 
 # --------------------------------------------------------------------------
 # Modelos
@@ -230,6 +247,15 @@ class ScottsBassLessons:
             
             browser.close()
         
+        # Añadir curso especial Motown Masters
+        courses.append(
+            SBLCourse(
+                title="Motown Masters: Mo's Muted Mashup (Danny Mo) [Vídeos HD + Audio + Workbooks]",
+                slug="motown-masters",
+                url="https://s3.amazonaws.com/bassbootcamps/MosMutedMashup/",
+            )
+        )
+        
         console.print(f"\n[bold]🎸 {len(courses)} cursos disponibles en Scott's Bass Lessons:[/bold]")
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("#", justify="right", style="dim", width=4)
@@ -339,7 +365,10 @@ class ScottsBassLessons:
     # Descarga
     # ------------------------------------------------------------------
     def download_course(self, course_slug: str, limit: int | None = None) -> None:
-        """Descarga solo los materiales (PDFs, ZIPs, audio) de un curso."""
+        """Descarga materiales o curso completo de SBL."""
+        if course_slug in ["motown-masters", "motown", "danny-mo", "mos-muted-mashup"]:
+            return self.download_motown_masters()
+
         console.print(f"\n[bold cyan]📥 Descargando materiales del curso:[/bold cyan] {course_slug}")
         
         course = self.get_course_detail(course_slug)
@@ -385,6 +414,144 @@ class ScottsBassLessons:
                 progress.advance(task)
         
         console.print(f"[green]✓ Materiales descargados:[/green] {course.title}")
+
+    def download_motown_masters(self) -> None:
+        """Descarga y extrae el curso completo Motown Masters (Mo's Muted Mashup de Danny Mo)."""
+        import zipfile
+        import shutil
+
+        course_dir = self.download_dir / "motown-masters-danny-mo"
+        course_dir.mkdir(parents=True, exist_ok=True)
+        zips_dir = course_dir / "_zips"
+        zips_dir.mkdir(parents=True, exist_ok=True)
+
+        console.print("\n[bold cyan]📥 Descargando curso Motown Masters (Mo's Muted Mashup - Danny Mo)...[/bold cyan]")
+        console.print(f"   Destino: {course_dir}")
+        console.print(f"   Ficheros: {len(MOTOWN_MASTERS_FILES)} paquetes ZIP (~5.5 GB Vídeos HD, Workbooks y Play Alongs)")
+
+        client = httpx.Client(timeout=180, follow_redirects=True)
+
+        # 1. Descargar ficheros ZIP
+        for filename, url in MOTOWN_MASTERS_FILES:
+            dest_zip = zips_dir / filename
+            if dest_zip.exists() and dest_zip.stat().st_size > 0:
+                console.print(f"[dim]  ↩ Ya existe paquete: {filename}[/dim]")
+                continue
+
+            console.print(f"  📦 Descargando paquete: [bold]{filename}[/bold]…")
+            try:
+                with client.stream("GET", url) as r:
+                    r.raise_for_status()
+                    total = int(r.headers.get("content-length", 0))
+                    dl_bytes = 0
+                    with open(dest_zip, "wb") as f:
+                        for chunk in r.iter_bytes(chunk_size=65536):
+                            f.write(chunk)
+                            dl_bytes += len(chunk)
+                console.print(f"[green]    ✓ Descargado: {filename} ({dl_bytes / 1024 / 1024:.1f} MB)[/green]")
+            except Exception as e:
+                console.print(f"[red]    ✗ Error descargando {filename}: {e}[/red]")
+
+        client.close()
+
+        # 2. Descomprimir y estructurar por lecciones
+        console.print("\n[bold yellow]📂 Descomprimiendo y estructurando lecciones de Motown Masters...[/bold yellow]")
+
+        # A. Extraer lecciones de vídeo (1 a 8)
+        for i in range(1, 9):
+            lesson_dir = course_dir / f"00{i}_Lesson_{i}"
+            lesson_dir.mkdir(parents=True, exist_ok=True)
+            zip_path = zips_dir / f"MoMashupLesson{i}.zip"
+            if zip_path.exists():
+                try:
+                    with zipfile.ZipFile(zip_path) as z:
+                        for item in z.infolist():
+                            if not item.filename.startswith("__MACOSX") and item.filename.endswith(".mp4"):
+                                target = lesson_dir / f"00{i}_Lesson_{i}.mp4"
+                                if not target.exists():
+                                    with z.open(item) as src, open(target, "wb") as dst:
+                                        shutil.copyfileobj(src, dst)
+                                    console.print(f"[green]  ✓ Vídeo HD: {target.name}[/green]")
+                except Exception as e:
+                    console.print(f"[yellow]  ⚠ Error extrayendo vídeo de {zip_path.name}: {e}[/yellow]")
+
+        # B. Final Thoughts
+        ft_dir = course_dir / "009_Final_Thoughts"
+        ft_dir.mkdir(parents=True, exist_ok=True)
+        ft_zip = zips_dir / "MoMashupFinalThoughts.zip"
+        if ft_zip.exists():
+            try:
+                with zipfile.ZipFile(ft_zip) as z:
+                    for item in z.infolist():
+                        if not item.filename.startswith("__MACOSX") and item.filename.endswith(".mp4"):
+                            target = ft_dir / "009_Final_Thoughts.mp4"
+                            if not target.exists():
+                                with z.open(item) as src, open(target, "wb") as dst:
+                                    shutil.copyfileobj(src, dst)
+                                console.print(f"[green]  ✓ Vídeo HD: {target.name}[/green]")
+            except Exception as e:
+                console.print(f"[yellow]  ⚠ Error extrayendo Final Thoughts: {e}[/yellow]")
+
+        # C. Live Sessions 1, 2, 3
+        for ls_idx in range(1, 4):
+            ls_dir = course_dir / f"0{9+ls_idx:02d}_Live_Session_{ls_idx}"
+            ls_dir.mkdir(parents=True, exist_ok=True)
+            ls_zip = zips_dir / f"MotownMastersLiveSession{ls_idx}.zip"
+            if ls_zip.exists():
+                try:
+                    with zipfile.ZipFile(ls_zip) as z:
+                        for item in z.infolist():
+                            if not item.filename.startswith("__MACOSX") and item.filename.endswith(".mp4"):
+                                target = ls_dir / f"0{9+ls_idx:02d}_Live_Session_{ls_idx}.mp4"
+                                if not target.exists():
+                                    with z.open(item) as src, open(target, "wb") as dst:
+                                        shutil.copyfileobj(src, dst)
+                                    console.print(f"[green]  ✓ Vídeo HD: {target.name}[/green]")
+                except Exception as e:
+                    console.print(f"[yellow]  ⚠ Error extrayendo Live Session {ls_idx}: {e}[/yellow]")
+
+        # D. Workbooks (PDFs correspondientes a cada lección)
+        wb_zip = zips_dir / "Workbooks.zip"
+        if wb_zip.exists():
+            try:
+                with zipfile.ZipFile(wb_zip) as z:
+                    for item in z.infolist():
+                        if not item.filename.startswith("__MACOSX") and item.filename.endswith(".pdf"):
+                            m = re.search(r"L#(\d+)", item.filename)
+                            if m:
+                                l_num = int(m.group(1))
+                                l_dir = course_dir / f"00{l_num}_Lesson_{l_num}"
+                                l_dir.mkdir(parents=True, exist_ok=True)
+                                target = l_dir / f"00{l_num}_Workbook_Lesson_{l_num}.pdf"
+                                if not target.exists():
+                                    with z.open(item) as src, open(target, "wb") as dst:
+                                        shutil.copyfileobj(src, dst)
+                                    console.print(f"[green]  ✓ Workbook PDF: {target.name}[/green]")
+            except Exception as e:
+                console.print(f"[yellow]  ⚠ Error extrayendo Workbooks: {e}[/yellow]")
+
+        # E. Play Alongs (Audio tracks a cada lección)
+        pa_zip = zips_dir / "Play Alongs.zip"
+        if pa_zip.exists():
+            try:
+                with zipfile.ZipFile(pa_zip) as z:
+                    for item in z.infolist():
+                        if not item.filename.startswith("__MACOSX") and not item.is_dir() and (item.filename.endswith(".mp3") or item.filename.endswith(".m4a")):
+                            m = re.search(r"Lesson\+(\d+)", item.filename)
+                            if m:
+                                l_num = int(m.group(1))
+                                l_dir = course_dir / f"00{l_num}_Lesson_{l_num}"
+                                l_dir.mkdir(parents=True, exist_ok=True)
+                                fname = item.filename.split("/")[-1].replace("+", " ")
+                                target = l_dir / fname
+                                if not target.exists():
+                                    with z.open(item) as src, open(target, "wb") as dst:
+                                        shutil.copyfileobj(src, dst)
+                                    console.print(f"[green]  ✓ Audio Track: {target.name}[/green]")
+            except Exception as e:
+                console.print(f"[yellow]  ⚠ Error extrayendo Play Alongs: {e}[/yellow]")
+
+        console.print(f"\n[green]✓ Curso Motown Masters completado y organizado en:[/green] {course_dir}")
 
     def download_all(self, limit: int | None = None) -> None:
         """Descarga los materiales de todos los cursos disponibles secuencialmente."""
