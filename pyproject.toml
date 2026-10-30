@@ -12,6 +12,7 @@ dependencies = [
     "rich>=13.8",
     "python-dotenv>=1.0",
     "aiofiles>=24.1",
+    "pycryptodomex>=3.20",
 ]
 
 [project.scripts]

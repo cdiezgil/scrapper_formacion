@@ -12,12 +12,18 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn, TransferSpeedColumn
 
+import shutil
 import yt_dlp
-try:
-    import imageio_ffmpeg
-    _FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
-except ImportError:
-    _FFMPEG_PATH = None
+
+_FFMPEG_EXE = shutil.which("ffmpeg")
+if _FFMPEG_EXE:
+    _FFMPEG_DIR = str(Path(_FFMPEG_EXE).parent)
+else:
+    try:
+        import imageio_ffmpeg
+        _FFMPEG_DIR = str(Path(imageio_ffmpeg.get_ffmpeg_exe()).parent)
+    except Exception:
+        _FFMPEG_DIR = None
 
 console = Console()
 
@@ -90,7 +96,7 @@ def download_video(
         "no_warnings": False,
         "merge_output_format": "mp4",
         "nocheckcertificate": not verify_ssl,
-        **(({"ffmpeg_location": _FFMPEG_PATH}) if _FFMPEG_PATH else {}),
+        **(({"ffmpeg_location": _FFMPEG_DIR}) if _FFMPEG_DIR else {}),
         "concurrent_fragment_downloads": 4,
         "retries": 5,
         "fragment_retries": 5,

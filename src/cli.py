@@ -31,6 +31,9 @@ app.add_typer(scottsbass_app, name="scottsbass")
 domestika_app = typer.Typer(help="Domestika (domestika.org)", no_args_is_help=True)
 app.add_typer(domestika_app, name="domestika")
 
+teachable_app = typer.Typer(help="SBL Teachable Accelerators (scotts-bass-lessons.teachable.com)", no_args_is_help=True)
+app.add_typer(teachable_app, name="teachable")
+
 console = Console()
 
 # --------------------------------------------------------------------------
@@ -433,6 +436,50 @@ def domestika_descargar(
     scrapper = Domestika(download_dir=_get_download_dir(), quality=quality)
     try:
         scrapper.download_course(course_url_or_slug=curso, limit=limite)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# teachable cursos — lista programas Accelerator
+# --------------------------------------------------------------------------
+@teachable_app.command("cursos", help="Lista programas Accelerator de SBL en Teachable")
+def teachable_cursos():
+    from .sites.teachable import Teachable
+    scrapper = Teachable(download_dir=_get_download_dir(), quality=_get_quality())
+    try:
+        scrapper.list_courses()
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# teachable descargar — descarga lecciones, vídeos 1080p y workbooks
+# --------------------------------------------------------------------------
+@teachable_app.command("descargar", help="Descarga vídeos 1080p y workbooks de programas Accelerator")
+def teachable_descargar(
+    curso: str | None = typer.Option(None, "--curso", "-c",
+        help="ID del curso (ej: '515593' para Gary Willis Masterclass, '754100' para Bass Technique)."),
+    todo: bool = typer.Option(False, "--todo", "-a",
+        help="Descargar todos los programas matriculados."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de lecciones a descargar por programa (para pruebas)."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo: best | 1080 | 720 | 480."),
+):
+    from .sites.teachable import Teachable
+    if not curso and not todo:
+        console.print("[yellow]Indica --curso <ID> o --todo[/yellow]")
+        raise typer.Exit(0)
+    quality = calidad or _get_quality()
+    scrapper = Teachable(download_dir=_get_download_dir(), quality=quality)
+    try:
+        if todo:
+            scrapper.download_all(limit=limite)
+        else:
+            scrapper.download_course(course_id=curso, limit=limite)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)

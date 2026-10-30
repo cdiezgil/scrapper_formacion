@@ -11,6 +11,7 @@ Descargador de cursos de plataformas de formación online para visualización of
 | `scoolinary` | [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina · 460+ cursos · vídeos 1080p/4K Vimeo Pro · Recetarios PDF | ✅ Listo |
 | `scottsbass` | [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online · Workbooks PDF y Audio tracks ZIP | ✅ Listo (Materiales) |
 | `domestika` | [domestika.org](https://domestika.org) | Creatividad y diseño · Vídeos 1080p HLS y recursos adjuntos | ✅ Listo |
+| `teachable` | [scotts-bass-lessons.teachable.com](https://scotts-bass-lessons.teachable.com) | SBL Accelerators (Gary Willis, Fretboard, Technique...) · Vídeos 1080p y Workbooks | ✅ Listo |
 
 ## Plataformas adicionales / subdominios
 
@@ -144,6 +145,23 @@ python -m src.cli domestika descargar --curso https://www.domestika.org/es/cours
 
 # Descargar con límite de vídeos (para pruebas)
 python -m src.cli domestika descargar --curso https://www.domestika.org/es/courses/123-nombre-del-curso --limite 2
+```
+
+### SBL Teachable Accelerators (`teachable`)
+
+```bash
+# Listar programas Accelerator matriculados
+python -m src.cli teachable cursos
+
+# Descargar un programa completo (por ID)
+python -m src.cli teachable descargar --curso 515593    # The Gary Willis Masterclass
+python -m src.cli teachable descargar --curso 754100    # The Bass Technique Accelerator Program
+python -m src.cli teachable descargar --curso 1320709   # The Fretboard Accelerator
+python -m src.cli teachable descargar --curso 801764    # The Practice Accelerator
+python -m src.cli teachable descargar --curso 416534    # The Ultimate Bass Buyers Guide
+
+# Descargar todos los programas matriculados en Teachable
+python -m src.cli teachable descargar --todo
 ```
 
 ### Opciones comunes
