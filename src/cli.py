@@ -384,22 +384,30 @@ def scottsbass_cursos():
 # --------------------------------------------------------------------------
 # scottsbass descargar — descarga vídeos y materiales de un curso
 # --------------------------------------------------------------------------
-@scottsbass_app.command("descargar", help="Descarga vídeos y materiales de un curso de SBL")
+@scottsbass_app.command("descargar", help="Descarga materiales de un curso o de todo SBL")
 def scottsbass_descargar(
-    curso: str = typer.Option(..., "--curso", "-c",
+    curso: str | None = typer.Option(None, "--curso", "-c",
         help="Slug del curso (ej: 'the-bass-players-phrasebook-learn-the-lines-steal-the-language')."),
+    todo: bool = typer.Option(False, "--todo", "-a",
+        help="Descargar materiales de todos los cursos disponibles."),
     limite: int | None = typer.Option(None, "--limite", "-l",
-        help="Límite máximo de lecciones a descargar."),
+        help="Límite máximo de lecciones a descargar por curso."),
     calidad: str = typer.Option("", "--calidad", "-q",
         help="Calidad de vídeo: best | 1080 | 720 | 480."),
 ):
     from .sites.scottsbasslessons import ScottsBassLessons
+    if not curso and not todo:
+        console.print("[yellow]Indica --curso SLUG o --todo[/yellow]")
+        raise typer.Exit(0)
     email, password = _scottsbass_credentials()
     quality = calidad or _get_quality()
     with ScottsBassLessons(email, password, _get_download_dir(), quality) as scrapper:
         try:
             scrapper.login()
-            scrapper.download_course(course_slug=curso, limit=limite)
+            if todo:
+                scrapper.download_all(limit=limite)
+            else:
+                scrapper.download_course(course_slug=curso, limit=limite)
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)

@@ -206,8 +206,8 @@ class ScottsBassLessons:
             context.add_cookies(cookies)
             
             page = context.new_page()
-            page.goto(f"{BASE_URL}/courses", wait_until="networkidle")
-            page.wait_for_timeout(3000)
+            page.goto(f"{BASE_URL}/courses", wait_until="domcontentloaded")
+            page.wait_for_timeout(3500)
             
             # Get course links
             links = page.locator("a").evaluate_all("""
@@ -261,8 +261,8 @@ class ScottsBassLessons:
             
             # Go to course page
             course_url = f"{BASE_URL}/courses/{slug}"
-            page.goto(course_url, wait_until="networkidle")
-            page.wait_for_timeout(3000)
+            page.goto(course_url, wait_until="domcontentloaded")
+            page.wait_for_timeout(3500)
             
             # Get course title
             title = page.title().replace("Courses: ", "").replace(" – Scott's Bass Lessons", "")
@@ -303,8 +303,8 @@ class ScottsBassLessons:
             context.add_cookies(cookies)
             
             page = context.new_page()
-            page.goto(lesson.url, wait_until="networkidle")
-            page.wait_for_timeout(4000)
+            page.goto(lesson.url, wait_until="domcontentloaded")
+            page.wait_for_timeout(3500)
             
             # Find Gumlet video embed
             content = page.content()
@@ -385,6 +385,15 @@ class ScottsBassLessons:
                 progress.advance(task)
         
         console.print(f"[green]✓ Materiales descargados:[/green] {course.title}")
+
+    def download_all(self, limit: int | None = None) -> None:
+        """Descarga los materiales de todos los cursos disponibles secuencialmente."""
+        courses = self.list_courses()
+        for course in courses:
+            try:
+                self.download_course(course.slug, limit=limit)
+            except Exception as e:
+                console.print(f"[yellow]⚠ Error descargando {course.title}: {e}. Continuando.[/yellow]")
 
     def close(self) -> None:
         if self._client:
