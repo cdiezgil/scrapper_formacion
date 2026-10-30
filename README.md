@@ -113,6 +113,9 @@ python -m src.cli scoolinary cursos
 python -m src.cli scoolinary cursos --buscar pizza
 python -m src.cli scoolinary cursos --buscar masa
 
+# Descargar exclusivamente los PDFs (Recetarios) de los cursos filtrados
+python -m src.cli scoolinary pdf --seleccionados
+
 # Descargar los cursos filtrados en scoolinary_seleccionados.md
 python -m src.cli scoolinary descargar --seleccionados
 

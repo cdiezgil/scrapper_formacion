@@ -288,8 +288,14 @@ class Scoolinary:
                         stream_url = f"https://player.vimeo.com/external/{vid}.m3u8?s={s}"
 
                     # Extraer PDFs (recetarios y documentos adjuntos sin duplicados)
+                    # Primero buscar en content_native (más fiable para lecciones sin contenido renderizado)
+                    raw_html = rendered
+                    for cn in l_data.get("content_native", []):
+                        if isinstance(cn, dict):
+                            raw_html += " " + cn.get("render", "") + " " + str(cn.get("data", {}))
+
                     seen_urls = set()
-                    for f_match in re.findall(r'<a[^>]*href=[\"\'](https://media\.scoolinary\.app/[^\"\'\s]+\.pdf)[\"\'][^>]*>(.*?)</a>', rendered, re.I):
+                    for f_match in re.findall(r'<a[^>]*href=[\"\'](https://media\.scoolinary\.app/[^\"\'\s]+\.pdf)[\"\'][^>]*>(.*?)</a>', raw_html, re.I):
                         pdf_url, pdf_txt = f_match
                         if pdf_url in seen_urls:
                             continue
@@ -300,6 +306,17 @@ class Scoolinary:
                             pdf_name += ".pdf"
                         files.append((pdf_name, pdf_url))
                         seen_urls.add(pdf_url)
+
+                    # Si hay múltiples PDFs en un solo idioma (ej: ES), filtrar los de otros idiomas
+                    if len(files) > 1:
+                        es_files = [(n, u) for n, u in files if re.search(r"[-_/]ES[-_.]|ES[-_.]|espa[nñ]ol", u, re.I)]
+                        if es_files:
+                            files = es_files
+                        else:
+                            # Excluir EN, DE, FR, IT, PT si no hay ES
+                            non_other = [(n, u) for n, u in files if not re.search(r"[-_/](EN|DE|FR|IT|PT)[-_.]", u, re.I)]
+                            if non_other:
+                                files = non_other
 
                 lessons.append(
                     ScoolinaryLesson(
@@ -440,6 +457,126 @@ class Scoolinary:
                 self.download_course(slug, limit=per_course_limit)
             except Exception as e:
                 console.print(f"[red]⚠ Error en curso {slug}: {e}. Continuando con el siguiente.[/red]")
+
+    def download_all_pdfs(self, file_path: Path | str) -> None:
+        """Descarga exclusivamente los PDFs de los cursos listados (recetarios, guías, etc.).
+        
+        Si un curso tiene PDFs en varios idiomas, descarga solo los de Español.
+        Si solo tiene PDFs en otro idioma, los descarga también (por compatibilidad).
+        """
+        p = Path(file_path)
+        if not p.exists():
+            console.print(f"[red]Fichero no encontrado: {file_path}[/red]")
+            return
+
+        text = p.read_text(encoding="utf-8")
+        # Extraer slugs de la columna slug en tablas markdown
+        slugs = re.findall(r"\| `([a-z0-9\-]+)` \|", text)
+        seen = set()
+        distinct_slugs = [s for s in slugs if not (s in seen or seen.add(s))]
+
+        console.print(f"\n[bold cyan]📚 Extrayendo PDFs en español de {len(distinct_slugs)} cursos listados en {p.name}...[/bold cyan]")
+
+        pdf_dir = self.download_dir / "_pdfs"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Procesando cursos", total=len(distinct_slugs))
+            
+            for idx, slug in enumerate(distinct_slugs, 1):
+                progress.update(task, description=f"[{idx}/{len(distinct_slugs)}] {slug[:35]}")
+                try:
+                    # Obtener detalles de curso (sin imprimir tabla)
+                    course_obj = None
+                    r_s = self._client.get(f"{API_BASE}/courses?slug={slug}&wpml_language={self.lang}")
+                    if r_s.status_code == 200 and r_s.json():
+                        c_data = r_s.json()[0]
+                        t = re.sub(r"<[^>]+>", "", c_data.get("title", {}).get("rendered", "")).strip()
+                        course_obj = ScoolinaryCourse(id=c_data["id"], title=t, slug=c_data.get("slug", ""), link=c_data.get("link", ""))
+                    
+                    if not course_obj:
+                        progress.advance(task)
+                        continue
+
+                    # Crear carpeta específica para este curso
+                    c_dir = pdf_dir / slug
+                    c_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Obtener lecciones
+                    r_d = self._client.get(f"{API_BASE}/courses/{course_obj.id}/details?wpml_language={self.lang}")
+                    if r_d.status_code != 200:
+                        progress.advance(task)
+                        continue
+                    
+                    raw_lessons = r_d.json().get("lessons", [])
+                    found_any_pdf = False
+
+                    # Revisar cada lección en busca de PDFs
+                    for rl in raw_lessons:
+                        lid = rl.get("id")
+                        r_l = self._client.get(f"{API_BASE}/lessons/{lid}?wpml_language={self.lang}")
+                        if r_l.status_code != 200:
+                            continue
+                        
+                        l_data = r_l.json()
+                        raw_html = l_data.get("content", {}).get("rendered", "")
+                        for cn in l_data.get("content_native", []):
+                            if isinstance(cn, dict):
+                                raw_html += " " + cn.get("render", "") + " " + str(cn.get("data", {}))
+                        
+                        urls = list(set(re.findall(r"https?://media\.scoolinary\.app/[^\s\"'<>]+\.pdf", raw_html, re.I)))
+                        
+                        if len(urls) > 1:
+                            es_urls = [u for u in urls if re.search(r"[-_/]ES[-_.]|ES[-_.]|espa[nñ]ol", u, re.I)]
+                            if es_urls:
+                                urls = es_urls
+                            else:
+                                non_other = [u for u in urls if not re.search(r"[-_/](EN|DE|FR|IT|PT)[-_.]", u, re.I)]
+                                if non_other:
+                                    urls = non_other
+
+                        for pdf_url in urls:
+                            found_any_pdf = True
+                            # Nombre base: usar el título de la lección
+                            lt = rl.get("title", "Documento")
+                            lt_clean = re.sub(r"[^\w\s-]", "", lt).strip().replace(" ", "_")
+                            ext = unquote(pdf_url.split("/")[-1]).split("/")[-1]
+                            fname = f"{lt_clean}_{ext}" if len(urls) > 1 else f"{lt_clean}.pdf"
+                            if not fname.lower().endswith(".pdf"):
+                                fname += ".pdf"
+
+                            # Eliminar duplicados de extensión
+                            if ext.lower().endswith(".pdf"):
+                                fname = fname.replace(f"_{ext}.pdf", ".pdf")
+
+                            target_path = c_dir / fname
+                            if target_path.exists() and target_path.stat().st_size > 0:
+                                continue
+
+                            download_file(
+                                url=pdf_url,
+                                output_dir=c_dir,
+                                filename=fname,
+                                prefix=None,
+                                http_client=self._client,
+                            )
+
+                    if not found_any_pdf:
+                        c_dir.rmdir()  # Eliminar carpeta vacía si no se encontró nada
+
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Error procesando curso {slug}: {e}[/yellow]")
+
+                progress.advance(task)
+
+        console.print(f"\n[green]✓ Todos los PDFs extraídos y guardados en:[/green] {pdf_dir}")
 
     def close(self) -> None:
         if self._client:

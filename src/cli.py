@@ -390,6 +390,35 @@ def scoolinary_descargar(
 
 
 # --------------------------------------------------------------------------
+# scoolinary pdf — descarga exclusivamente los PDFs de cursos seleccionados
+# --------------------------------------------------------------------------
+@scoolinary_app.command("pdf", help="Descarga exclusivamente los PDFs (Recetarios) de cursos")
+def scoolinary_pdf(
+    seleccionados: bool = typer.Option(False, "--seleccionados", "-s",
+        help="Extraer PDFs de scoolinary_seleccionados.md."),
+    archivo: str | None = typer.Option(None, "--archivo",
+        help="Ruta al archivo Markdown/texto con lista de cursos."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo (para contexto de descarga)."),
+):
+    from .sites.scoolinary import Scoolinary
+    if not seleccionados and not archivo:
+        console.print("[yellow]Indica --seleccionados o --archivo[/yellow]")
+        raise typer.Exit(0)
+    quality = calidad or _get_quality()
+    with Scoolinary(download_dir=_get_download_dir(), quality=quality) as scrapper:
+        try:
+            scrapper.login()
+            if seleccionados:
+                scrapper.download_all_pdfs("scoolinary_seleccionados.md")
+            elif archivo:
+                scrapper.download_all_pdfs(archivo)
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
 # scottsbass cursos — lista cursos de bajo
 # --------------------------------------------------------------------------
 @scottsbass_app.command("cursos", help="Lista cursos disponibles en Scott's Bass Lessons")
