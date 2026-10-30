@@ -349,6 +349,10 @@ def scoolinary_cursos(
 def scoolinary_descargar(
     curso: str | None = typer.Option(None, "--curso", "-c",
         help="Slug o ID del curso (ej: 'roscones-clasicos-creativos' o 1626373)."),
+    seleccionados: bool = typer.Option(False, "--seleccionados", "-s",
+        help="Descargar los cursos filtrados en scoolinary_seleccionados.md."),
+    archivo: str | None = typer.Option(None, "--archivo",
+        help="Ruta al archivo Markdown/texto con lista de cursos a descargar."),
     todo: bool = typer.Option(False, "--todo", "-a",
         help="Descargar los primeros N cursos del catálogo de Scoolinary."),
     cantidad: int = typer.Option(50, "--cantidad", "-n",
@@ -361,14 +365,18 @@ def scoolinary_descargar(
         help="Calidad de vídeo: best | 1080 | 720 | 480."),
 ):
     from .sites.scoolinary import Scoolinary
-    if not curso and not todo:
-        console.print("[yellow]Indica --curso SLUG o --todo[/yellow]")
+    if not curso and not todo and not seleccionados and not archivo:
+        console.print("[yellow]Indica --curso SLUG, --seleccionados, o --todo[/yellow]")
         raise typer.Exit(0)
     quality = calidad or _get_quality()
     with Scoolinary(download_dir=_get_download_dir(), quality=quality) as scrapper:
         try:
             scrapper.login()
-            if todo:
+            if seleccionados:
+                scrapper.download_from_file("scoolinary_seleccionados.md", per_course_limit=limite)
+            elif archivo:
+                scrapper.download_from_file(archivo, per_course_limit=limite)
+            elif todo:
                 scrapper.download_top_courses(count=cantidad, per_course_limit=limite)
             else:
                 scrapper.download_course(

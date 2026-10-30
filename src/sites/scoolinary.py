@@ -413,6 +413,34 @@ class Scoolinary:
             except Exception as e:
                 console.print(f"[red]⚠ Error descargando curso {course.title}: {e}. Continuando con el siguiente.[/red]")
 
+    def download_from_file(self, file_path: Path | str, limit_courses: int | None = None, per_course_limit: int | None = None) -> None:
+        """Descarga los cursos listados en un fichero markdown o de texto (extrae slugs de la tabla)."""
+        p = Path(file_path)
+        if not p.exists():
+            console.print(f"[red]Fichero no encontrado: {file_path}[/red]")
+            return
+
+        text = p.read_text(encoding="utf-8")
+        # Extraer slugs de la columna slug en tablas markdown
+        slugs = re.findall(r"\| `([a-z0-9\-]+)` \| [^|]+ \| [^|]+ \|", text)
+        if not slugs:
+            slugs = re.findall(r"\| `([a-z0-9\-]+)` \|", text)
+
+        seen = set()
+        distinct_slugs = [s for s in slugs if not (s in seen or seen.add(s))]
+
+        if limit_courses and limit_courses > 0:
+            distinct_slugs = distinct_slugs[:limit_courses]
+
+        console.print(f"\n[bold cyan]🍳 Descargando {len(distinct_slugs)} cursos seleccionados desde {p.name}...[/bold cyan]")
+
+        for idx, slug in enumerate(distinct_slugs, 1):
+            console.print(f"\n[bold yellow]({idx}/{len(distinct_slugs)}) Procesando curso:[/bold yellow] [bold]{slug}[/bold]")
+            try:
+                self.download_course(slug, limit=per_course_limit)
+            except Exception as e:
+                console.print(f"[red]⚠ Error en curso {slug}: {e}. Continuando con el siguiente.[/red]")
+
     def close(self) -> None:
         if self._client:
             self._client.close()

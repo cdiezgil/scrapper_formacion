@@ -113,6 +113,9 @@ python -m src.cli scoolinary cursos
 python -m src.cli scoolinary cursos --buscar pizza
 python -m src.cli scoolinary cursos --buscar masa
 
+# Descargar los cursos filtrados en scoolinary_seleccionados.md
+python -m src.cli scoolinary descargar --seleccionados
+
 # Descargar los primeros 50 cursos completos del catálogo
 python -m src.cli scoolinary descargar --todo --cantidad 50
 
