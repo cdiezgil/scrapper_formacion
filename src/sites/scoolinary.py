@@ -390,6 +390,29 @@ class Scoolinary:
 
         console.print(f"[green]✓ Curso completado:[/green] {course.title}")
 
+    def download_top_courses(self, count: int = 50, per_course_limit: int | None = None) -> None:
+        """Descarga los primeros N cursos del catálogo de Scoolinary secuencialmente."""
+        console.print(f"\n[bold cyan]🍳 Obteniendo los primeros {count} cursos de Scoolinary en español...[/bold cyan]")
+
+        all_courses: list[ScoolinaryCourse] = []
+        page = 1
+        while len(all_courses) < count:
+            batch = self.list_courses(page=page, per_page=min(50, count - len(all_courses)))
+            if not batch:
+                break
+            all_courses.extend(batch)
+            page += 1
+
+        all_courses = all_courses[:count]
+        console.print(f"\n[bold green]✓ {len(all_courses)} cursos listados para descargar.[/bold green]")
+
+        for idx, course in enumerate(all_courses, 1):
+            console.print(f"\n[bold yellow]({idx}/{len(all_courses)}) Descargando curso:[/bold yellow] [bold]{course.title}[/bold] ({course.slug})")
+            try:
+                self.download_course(course.slug, limit=per_course_limit)
+            except Exception as e:
+                console.print(f"[red]⚠ Error descargando curso {course.title}: {e}. Continuando con el siguiente.[/red]")
+
     def close(self) -> None:
         if self._client:
             self._client.close()

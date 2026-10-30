@@ -345,27 +345,37 @@ def scoolinary_cursos(
 # --------------------------------------------------------------------------
 # scoolinary descargar — descarga lecciones, vídeos 1080p y recetarios PDF
 # --------------------------------------------------------------------------
-@scoolinary_app.command("descargar", help="Descarga vídeos y recetarios de un curso de Scoolinary")
+@scoolinary_app.command("descargar", help="Descarga vídeos y recetarios de cursos de Scoolinary")
 def scoolinary_descargar(
-    curso: str = typer.Option(..., "--curso", "-c",
+    curso: str | None = typer.Option(None, "--curso", "-c",
         help="Slug o ID del curso (ej: 'roscones-clasicos-creativos' o 1626373)."),
+    todo: bool = typer.Option(False, "--todo", "-a",
+        help="Descargar los primeros N cursos del catálogo de Scoolinary."),
+    cantidad: int = typer.Option(50, "--cantidad", "-n",
+        help="Cantidad de cursos a descargar con --todo (default: 50)."),
     leccion: str | None = typer.Option(None, "--leccion",
         help="Slug o ID de lección concreta."),
     limite: int | None = typer.Option(None, "--limite", "-l",
-        help="Límite máximo de lecciones a descargar."),
+        help="Límite máximo de lecciones a descargar por curso."),
     calidad: str = typer.Option("", "--calidad", "-q",
         help="Calidad de vídeo: best | 1080 | 720 | 480."),
 ):
     from .sites.scoolinary import Scoolinary
+    if not curso and not todo:
+        console.print("[yellow]Indica --curso SLUG o --todo[/yellow]")
+        raise typer.Exit(0)
     quality = calidad or _get_quality()
     with Scoolinary(download_dir=_get_download_dir(), quality=quality) as scrapper:
         try:
             scrapper.login()
-            scrapper.download_course(
-                course_slug_or_id=curso,
-                limit=limite,
-                leccion_slug=leccion,
-            )
+            if todo:
+                scrapper.download_top_courses(count=cantidad, per_course_limit=limite)
+            else:
+                scrapper.download_course(
+                    course_slug_or_id=curso,
+                    limit=limite,
+                    leccion_slug=leccion,
+                )
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)

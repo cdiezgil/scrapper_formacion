@@ -113,6 +113,9 @@ python -m src.cli scoolinary cursos
 python -m src.cli scoolinary cursos --buscar pizza
 python -m src.cli scoolinary cursos --buscar masa
 
+# Descargar los primeros 50 cursos completos del catálogo
+python -m src.cli scoolinary descargar --todo --cantidad 50
+
 # Descargar curso completo (por slug o ID)
 python -m src.cli scoolinary descargar --curso pizza-napolitana
 python -m src.cli scoolinary descargar --curso roscones-clasicos-creativos
