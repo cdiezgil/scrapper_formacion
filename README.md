@@ -9,13 +9,15 @@ Descargador de cursos de plataformas de formación online para visualización of
 | `edb` | [escueladebajistas.com](https://escueladebajistas.com) | 22 cursos · 40 canciones de repertorio · 170 ejercicios | ✅ Listo |
 | `atarcabos` | [atarcabos.com](https://atarcabos.com) | Cursos náuticos (PER, PNB...) · 11 módulos · 59 lecciones · 121 vídeos · Manuales PDF | ✅ Listo |
 | `scoolinary` | [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina · 460+ cursos · vídeos 1080p/4K Vimeo Pro · Recetarios PDF | ✅ Listo |
+| `scottsbass` | [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online · Workbooks PDF y Audio tracks ZIP | ✅ Listo (Materiales) |
 
 ## Plataformas pendientes de implementar
 
 | Plataforma | Notas |
 |---|---|
-| [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online |
 | [domestika.com](https://domestika.com) | Creatividad y diseño |
+| bootcamp.scottsbasslessons.com | Subdominio Bootcamp SBL |
+| motownmasters.scottsbasslessons.com | Subdominio Motown Masters SBL |
 
 ## Instalación
 
@@ -116,6 +118,16 @@ python -m src.cli scoolinary descargar --curso roscones-clasicos-creativos
 
 # Descargar con límite de lecciones (para pruebas)
 python -m src.cli scoolinary descargar --curso pizza-napolitana --limite 2
+```
+
+### Scott's Bass Lessons (`scottsbass`)
+
+```bash
+# Listar cursos disponibles
+python -m src.cli scottsbass cursos
+
+# Descargar materiales de un curso (workbooks PDF y backing audio tracks ZIP)
+python -m src.cli scottsbass descargar --curso the-bass-players-phrasebook-learn-the-lines-steal-the-language
 ```
 
 ### Opciones comunes

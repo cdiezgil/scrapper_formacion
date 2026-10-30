@@ -25,6 +25,9 @@ app.add_typer(atarcabos_app, name="atarcabos")
 scoolinary_app = typer.Typer(help="Scoolinary (scoolinary.com)", no_args_is_help=True)
 app.add_typer(scoolinary_app, name="scoolinary")
 
+scottsbass_app = typer.Typer(help="Scott's Bass Lessons (scottsbasslessons.com)", no_args_is_help=True)
+app.add_typer(scottsbass_app, name="scottsbass")
+
 console = Console()
 
 # --------------------------------------------------------------------------
@@ -59,6 +62,18 @@ def _atarcabos_credentials() -> tuple[str, str]:
         console.print(
             "[red]Faltan credenciales.[/red] "
             "Define ATARCABOS_EMAIL y ATARCABOS_PASSWORD en el fichero .env"
+        )
+        raise typer.Exit(1)
+    return email, password
+
+
+def _scottsbass_credentials() -> tuple[str, str]:
+    email = os.getenv("SCOTTSBASS_EMAIL", "")
+    password = os.getenv("SCOTTSBASS_PASSWORD", "")
+    if not email or not password:
+        console.print(
+            "[red]Faltan credenciales.[/red] "
+            "Define SCOTTSBASS_EMAIL y SCOTTSBASS_PASSWORD en el fichero .env"
         )
         raise typer.Exit(1)
     return email, password
@@ -345,6 +360,46 @@ def scoolinary_descargar(
                 limit=limite,
                 leccion_slug=leccion,
             )
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# scottsbass cursos — lista cursos de bajo
+# --------------------------------------------------------------------------
+@scottsbass_app.command("cursos", help="Lista cursos disponibles en Scott's Bass Lessons")
+def scottsbass_cursos():
+    from .sites.scottsbasslessons import ScottsBassLessons
+    email, password = _scottsbass_credentials()
+    with ScottsBassLessons(email, password, _get_download_dir(), _get_quality()) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.list_courses()
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# scottsbass descargar — descarga vídeos y materiales de un curso
+# --------------------------------------------------------------------------
+@scottsbass_app.command("descargar", help="Descarga vídeos y materiales de un curso de SBL")
+def scottsbass_descargar(
+    curso: str = typer.Option(..., "--curso", "-c",
+        help="Slug del curso (ej: 'the-bass-players-phrasebook-learn-the-lines-steal-the-language')."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de lecciones a descargar."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo: best | 1080 | 720 | 480."),
+):
+    from .sites.scottsbasslessons import ScottsBassLessons
+    email, password = _scottsbass_credentials()
+    quality = calidad or _get_quality()
+    with ScottsBassLessons(email, password, _get_download_dir(), quality) as scrapper:
+        try:
+            scrapper.login()
+            scrapper.download_course(course_slug=curso, limit=limite)
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)

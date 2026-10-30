@@ -7,3 +7,5 @@ downloads/
 .ruff_cache/
 *.egg-info/
 .*_session
+.*_cookies.json
+logs/
