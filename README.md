@@ -10,14 +10,14 @@ Descargador de cursos de plataformas de formación online para visualización of
 | `atarcabos` | [atarcabos.com](https://atarcabos.com) | Cursos náuticos (PER, PNB...) · 11 módulos · 59 lecciones · 121 vídeos · Manuales PDF | ✅ Listo |
 | `scoolinary` | [scoolinary.com](https://scoolinary.com) | Gastronomía y cocina · 460+ cursos · vídeos 1080p/4K Vimeo Pro · Recetarios PDF | ✅ Listo |
 | `scottsbass` | [scottsbasslessons.com](https://scottsbasslessons.com) | Clases de bajo online · Workbooks PDF y Audio tracks ZIP | ✅ Listo (Materiales) |
+| `domestika` | [domestika.org](https://domestika.org) | Creatividad y diseño · Vídeos 1080p HLS y recursos adjuntos | ✅ Listo |
 
-## Plataformas pendientes de implementar
+## Plataformas adicionales / subdominios
 
 | Plataforma | Notas |
 |---|---|
-| [domestika.com](https://domestika.com) | Creatividad y diseño |
-| bootcamp.scottsbasslessons.com | Subdominio Bootcamp SBL |
-| motownmasters.scottsbasslessons.com | Subdominio Motown Masters SBL |
+| bootcamp.scottsbasslessons.com | Subdominio histórico SBL (integrado en plataforma principal) |
+| motownmasters.scottsbasslessons.com | Subdominio histórico SBL (integrado en plataforma principal) |
 
 ## Instalación
 
@@ -126,8 +126,21 @@ python -m src.cli scoolinary descargar --curso pizza-napolitana --limite 2
 # Listar cursos disponibles
 python -m src.cli scottsbass cursos
 
-# Descargar materiales de un curso (workbooks PDF y backing audio tracks ZIP)
+# Descargar materiales de todos los cursos disponibles
+python -m src.cli scottsbass descargar --todo
+
+# Descargar materiales de un curso concreto (workbooks PDF y audio tracks ZIP)
 python -m src.cli scottsbass descargar --curso the-bass-players-phrasebook-learn-the-lines-steal-the-language
+```
+
+### Domestika (`domestika`)
+
+```bash
+# Descargar un curso comprado de Domestika (indicando URL o slug)
+python -m src.cli domestika descargar --curso https://www.domestika.org/es/courses/123-nombre-del-curso
+
+# Descargar con límite de vídeos (para pruebas)
+python -m src.cli domestika descargar --curso https://www.domestika.org/es/courses/123-nombre-del-curso --limite 2
 ```
 
 ### Opciones comunes

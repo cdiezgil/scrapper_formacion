@@ -28,6 +28,9 @@ app.add_typer(scoolinary_app, name="scoolinary")
 scottsbass_app = typer.Typer(help="Scott's Bass Lessons (scottsbasslessons.com)", no_args_is_help=True)
 app.add_typer(scottsbass_app, name="scottsbass")
 
+domestika_app = typer.Typer(help="Domestika (domestika.org)", no_args_is_help=True)
+app.add_typer(domestika_app, name="domestika")
+
 console = Console()
 
 # --------------------------------------------------------------------------
@@ -411,6 +414,28 @@ def scottsbass_descargar(
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)
+
+
+# --------------------------------------------------------------------------
+# domestika descargar — descarga unidades, vídeos 1080p y materiales
+# --------------------------------------------------------------------------
+@domestika_app.command("descargar", help="Descarga vídeos y materiales de un curso de Domestika")
+def domestika_descargar(
+    curso: str = typer.Option(..., "--curso", "-c",
+        help="URL completa o slug del curso (ej: 'https://www.domestika.org/es/courses/123-nombre-del-curso')."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Límite máximo de vídeos a descargar."),
+    calidad: str = typer.Option("", "--calidad", "-q",
+        help="Calidad de vídeo: best | 1080 | 720 | 480."),
+):
+    from .sites.domestika import Domestika
+    quality = calidad or _get_quality()
+    scrapper = Domestika(download_dir=_get_download_dir(), quality=quality)
+    try:
+        scrapper.download_course(course_url_or_slug=curso, limit=limite)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
 
 
 # --------------------------------------------------------------------------
