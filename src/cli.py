@@ -419,6 +419,97 @@ def scoolinary_pdf(
 
 
 # --------------------------------------------------------------------------
+# scoolinary md — convierte los recetarios PDF en notas Markdown (LLM local)
+# --------------------------------------------------------------------------
+@scoolinary_app.command("md", help="Convierte los recetarios PDF de Scoolinary en notas Markdown (Ollama)")
+def scoolinary_md(
+    curso: list[str] | None = typer.Option(None, "--curso", "-c",
+        help="Slug de curso a procesar (repetible). Por defecto, todos."),
+    limite: int | None = typer.Option(None, "--limite", "-l",
+        help="Procesar como máximo N cursos."),
+    force: bool = typer.Option(False, "--force", help="Reextraer aunque exista caché."),
+    solo_render: bool = typer.Option(False, "--solo-render",
+        help="Solo generar las notas desde la caché (sin LLM)."),
+    sin_render: bool = typer.Option(False, "--sin-render",
+        help="Solo extraer a la caché (sin generar notas)."),
+    listar: bool = typer.Option(False, "--listar",
+        help="Listar el PDF elegido por curso y salir (sin LLM)."),
+    model: str = typer.Option("gemma4:26b", "--model", help="Modelo de Ollama."),
+    ollama_url: str = typer.Option("http://192.168.178.33:30068", "--ollama-url",
+        help="URL base del servidor Ollama."),
+    src: str = typer.Option("/Volumes/Externo/formacion/scoolinary/_pdfs", "--src",
+        help="Carpeta con <curso>/*.pdf."),
+    out: str = typer.Option(
+        "/Users/carlosdiez/Documents/markdaun/Personal/recetas/scoolinary", "--out",
+        help="Carpeta de salida (gestionada: se regenera por completo)."),
+    cache: str | None = typer.Option(None, "--cache",
+        help="Carpeta de caché JSON (default: .cache/scoolinary_md del proyecto)."),
+):
+    from pathlib import Path
+
+    from rich.progress import Progress
+
+    from .sites.scoolinary_md import pipeline
+    from .sites.scoolinary_md.llm import OllamaClient
+    from .sites.scoolinary_md.render import UnsafeOutputDir, render_collection
+    from .sites.scoolinary_md.selection import select_all
+
+    cache_dir = Path(cache) if cache else Path(__file__).resolve().parent.parent / ".cache" / "scoolinary_md"
+    out_dir = Path(out)
+    src_dir = Path(src)
+
+    if not solo_render or listar:
+        if not src_dir.is_dir():
+            console.print(f"[red]No existe la carpeta de PDFs: {src_dir}[/red]")
+            raise typer.Exit(1)
+        selections, excluded = select_all(src_dir)
+        if curso:
+            wanted = set(curso)
+            unknown = wanted - {s.course for s in selections}
+            if unknown:
+                console.print(f"[yellow]Sin recetario seleccionable: {', '.join(sorted(unknown))}[/yellow]")
+            selections = [s for s in selections if s.course in wanted]
+        if limite is not None:
+            selections = selections[:limite]
+
+    if listar:
+        for s in selections:
+            flag = " [translate]" if s.translate else ""
+            console.print(f"{s.course}: {s.pdf.name}{flag}", highlight=False, markup=False, soft_wrap=True)
+        console.print(f"\n{len(selections)} cursos con recetario "
+                      f"({sum(s.translate for s in selections)} a traducir); "
+                      f"{len(excluded)} excluidos")
+        for slug in excluded:
+            console.print(f"  excluido: {slug}", highlight=False, markup=False, soft_wrap=True)
+        return
+
+    if not solo_render:
+        client = OllamaClient(ollama_url, model)
+        counts = {"ok": 0, "skipped": 0, "error": 0}
+        with Progress(console=console) as progress:
+            task = progress.add_task("Extrayendo recetarios", total=len(selections))
+            for s in selections:
+                progress.update(task, description=f"Extrayendo {s.course}")
+                status = pipeline.extract_course(s, cache_dir, client, force=force)
+                counts[status] += 1
+                if status == "error":
+                    progress.console.print(f"[red]Error en {s.course}[/red] (ver caché)")
+                progress.advance(task)
+        console.print(f"Extracción: {counts['ok']} ok, {counts['skipped']} en caché, "
+                      f"{counts['error']} con error")
+
+    if not sin_render:
+        try:
+            n = render_collection(pipeline.load_caches(cache_dir), out_dir)
+        except UnsafeOutputDir as e:
+            console.print(f"[red]{e}[/red]")
+            raise typer.Exit(1)
+        console.print(f"[green]{n} notas generadas en {out_dir}[/green]")
+    if cache_dir.is_dir():
+        console.print(f"Informe: {pipeline.write_report(cache_dir)}")
+
+
+# --------------------------------------------------------------------------
 # scottsbass cursos — lista cursos de bajo
 # --------------------------------------------------------------------------
 @scottsbass_app.command("cursos", help="Lista cursos disponibles en Scott's Bass Lessons")
