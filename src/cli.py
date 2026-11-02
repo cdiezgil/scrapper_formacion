@@ -434,6 +434,8 @@ def scoolinary_md(
         help="Solo extraer a la caché (sin generar notas)."),
     listar: bool = typer.Option(False, "--listar",
         help="Listar el PDF elegido por curso y salir (sin LLM)."),
+    fotos: bool = typer.Option(False, "--fotos",
+        help="Solo buscar las fotos de las recetas en los PDF (sin LLM) y generar las notas."),
     model: str = typer.Option("gemma4:26b", "--model", help="Modelo de Ollama."),
     ollama_url: str = typer.Option("http://192.168.178.33:30068", "--ollama-url",
         help="URL base del servidor Ollama."),
@@ -483,7 +485,21 @@ def scoolinary_md(
             console.print(f"  excluido: {slug}", highlight=False, markup=False, soft_wrap=True)
         return
 
-    if not solo_render:
+    if fotos and not solo_render:
+        from .sites.scoolinary_md import photos as photos_mod
+        counts = {"ok": 0, "skipped": 0, "error": 0}
+        with Progress(console=console) as progress:
+            task = progress.add_task("Buscando fotos", total=len(selections))
+            for s in selections:
+                progress.update(task, description=f"Fotos {s.course}")
+                status = photos_mod.process_course(s.course, s.pdf, cache_dir, force=force)
+                counts[status] += 1
+                if status == "error":
+                    progress.console.print(f"[red]Error en fotos de {s.course}[/red]")
+                progress.advance(task)
+        console.print(f"Fotos: {counts['ok']} ok, {counts['skipped']} ya hechos, "
+                      f"{counts['error']} con error")
+    elif not solo_render:
         client = OllamaClient(ollama_url, model)
         counts = {"ok": 0, "skipped": 0, "error": 0}
         with Progress(console=console) as progress:
@@ -500,7 +516,8 @@ def scoolinary_md(
 
     if not sin_render:
         try:
-            n = render_collection(pipeline.load_caches(cache_dir), out_dir)
+            n = render_collection(pipeline.load_caches(cache_dir), out_dir,
+                                  media_dir=cache_dir)
         except UnsafeOutputDir as e:
             console.print(f"[red]{e}[/red]")
             raise typer.Exit(1)

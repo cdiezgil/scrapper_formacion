@@ -107,19 +107,22 @@ def load_caches(cache_dir: Path) -> list[dict]:
 def write_report(cache_dir: Path) -> Path:
     caches = load_caches(cache_dir)
     lines = ["# Informe Scoolinary MD", "",
-             "| Curso | PDF | Recetas | Por revisar | Error |", "| :--- | :--- | ---: | ---: | :--- |"]
-    total = review = errors = 0
+             "| Curso | PDF | Recetas | Por revisar | Con foto | Error |",
+             "| :--- | :--- | ---: | ---: | ---: | :--- |"]
+    total = review = errors = photos = 0
     for c in caches:
         recipes = c.get("recipes", [])
         n_rev = sum(1 for r in recipes if r.get("needs_review"))
         err = str(c.get("error", "")).replace("|", "\\|").replace("\n", " ")
+        n_ph = sum(1 for r in recipes if r.get("foto"))
+        photos += n_ph
         total += len(recipes)
         review += n_rev
         errors += 1 if err else 0
         lines.append(f"| {c.get('course')} | {c.get('source_pdf', '')} | {len(recipes)} | "
-                     f"{n_rev} | {err} |")
+                     f"{n_rev} | {n_ph if c.get('fotos_done') else '-'} | {err} |")
     lines += ["", f"Cursos: {len(caches)} · Recetas: {total} · Por revisar: {review} · "
-              f"Errores: {errors}", ""]
+              f"Con foto: {photos} · Errores: {errors}", ""]
     path = cache_dir / "report.md"
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

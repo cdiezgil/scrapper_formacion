@@ -111,3 +111,17 @@ def test_failing_multi_page_chunk_is_split_in_halves(tmp_path):
     assert pipeline.extract_course(sel(tmp_path), cache, c, pdf_text=two_pages) == "ok"
     data = json.loads((cache / "focaccias.json").read_text())
     assert [r["titulo"] for r in data["recipes"]] == ["Focaccia", "Pizza"]
+
+
+def test_report_has_photo_column(tmp_path):
+    (tmp_path / "a.json").write_text(json.dumps({
+        "course": "a", "source_pdf": "x", "fotos_done": True,
+        "recipes": [{"titulo": "A", "foto": "media/a/a.jpg"}, {"titulo": "B", "foto": None}]}),
+        encoding="utf-8")
+    (tmp_path / "b.json").write_text(json.dumps({
+        "course": "b", "source_pdf": "y", "recipes": [{"titulo": "C"}]}), encoding="utf-8")
+    text = pipeline.write_report(tmp_path).read_text(encoding="utf-8")
+    assert "| Con foto |" in text
+    assert "| a | x | 2 | 0 | 1 |" in text
+    assert "| b | y | 1 | 0 | - |" in text
+    assert "Con foto: 1" in text

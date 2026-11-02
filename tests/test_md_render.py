@@ -140,3 +140,38 @@ def test_cached_cuisines_are_normalized_at_render(tmp_path):
     folders = sorted(p.name for p in (out / "recipes").iterdir())
     assert folders == ["italia", "peru"]
     assert 'cuisine: "Perú"' in next((out / "recipes" / "peru").glob("*.md")).read_text()
+
+
+def test_render_with_photo(tmp_path):
+    cache = tmp_path / "cache"
+    (cache / "media/focaccias").mkdir(parents=True)
+    (cache / "media/focaccias/focaccia-genovese.jpg").write_bytes(b"JPG")
+    cs = caches()
+    cs[0]["recipes"][0]["foto"] = "media/focaccias/focaccia-genovese.jpg"
+    out = tmp_path / "out"
+    render_collection(cs, out, media_dir=cache)
+    md = (out / "recipes/italia/0002-focaccia-genovese.md").read_text(encoding="utf-8")
+    rel = "../../media/focaccias/focaccia-genovese.jpg"
+    assert f'  complete: "{rel}"\n  detail: null' in md
+    assert f"| ![Focaccia: Genovese - Fotografía]({rel}) |" in md
+    assert md.index("## Galería") < md.index("## Elaboraciones")
+    assert (out / "media/focaccias/focaccia-genovese.jpg").read_bytes() == b"JPG"
+    assert "con foto" in (out / "README.md").read_text(encoding="utf-8")
+    # recipe without photo keeps the old output
+    other = (out / "recipes/italia/0003-focaccia-con-uva.md").read_text(encoding="utf-8")
+    assert "complete: null" in other and "Galería" not in other
+
+
+def test_render_photo_missing_file_degrades_to_no_photo(tmp_path):
+    cs = caches()
+    cs[0]["recipes"][0]["foto"] = "media/focaccias/nope.jpg"
+    out = tmp_path / "out"
+    render_collection(cs, out, media_dir=tmp_path / "cache")
+    md = (out / "recipes/italia/0002-focaccia-genovese.md").read_text(encoding="utf-8")
+    assert "complete: null" in md and "Galería" not in md
+
+
+def test_render_without_media_dir_is_unchanged(tmp_path):
+    out = tmp_path / "out"
+    render_collection(caches(), out)
+    assert not (out / "media").exists()

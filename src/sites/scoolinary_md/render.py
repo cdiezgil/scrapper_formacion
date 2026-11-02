@@ -62,6 +62,7 @@ class Note:
     folder: str = ""
     filename: str = ""
     path: str = field(default="")  # relative to out: recipes/<folder>/<filename>
+    photo: str | None = None  # relative to the media root, e.g. media/<course>/<slug>.jpg
 
     @property
     def title(self) -> str:
@@ -78,7 +79,7 @@ def _rel(frm: Note, to: Note) -> str:
     return f"../{to.folder}/{to.filename}"
 
 
-def _build_notes(caches: list[dict]) -> list[Note]:
+def _build_notes(caches: list[dict], media_dir: Path | None = None) -> list[Note]:
     entries = []
     for c in sorted((c for c in caches if "error" not in c and c.get("recipes")),
                     key=lambda c: c.get("course", "")):
@@ -93,6 +94,9 @@ def _build_notes(caches: list[dict]) -> list[Note]:
         n.folder = cslug
         n.filename = f"{n.num_str}-{n.slug}.md"
         n.path = f"recipes/{n.folder}/{n.filename}"
+        foto = r.get("foto")
+        if foto and media_dir is not None and (media_dir / foto).is_file():
+            n.photo = foto
         notes.append(n)
     return notes
 
@@ -112,6 +116,7 @@ def _render_note(n: Note, prev: Note | None, nxt: Note | None) -> str:
     course_title = humanize_course(n.course)
     plato = r.get("tipo_plato") or ""
     reasons = r.get("review_reasons") or []
+    photo_rel = f"../../{n.photo}" if n.photo else None
     fm = [
         "---",
         f"id: {n.num}",
@@ -130,7 +135,7 @@ def _render_note(n: Note, prev: Note | None, nxt: Note | None) -> str:
         f"source: {_q('Scoolinary — ' + course_title)}",
         "url: null",
         'origin: "Scoolinary"',
-        "images:\n  complete: null\n  detail: null",
+        f"images:\n  complete: {_q(photo_rel)}\n  detail: null",
         f"previous_recipe: {_q(_rel(n, prev) if prev else None)}",
         f"next_recipe: {_q(_rel(n, nxt) if nxt else None)}",
         f"chef: {_q(r.get('chef') or None)}",
@@ -149,8 +154,12 @@ def _render_note(n: Note, prev: Note | None, nxt: Note | None) -> str:
         f"**Raciones:** {r.get('raciones') or dash}  ",
         f"**Ingrediente principal:** {r.get('ingrediente_principal') or dash} · "
         f"**Aparato:** {', '.join(r.get('aparato') or []) or dash}  ",
-        "", "---", "", "## Elaboraciones", "",
+        "", "---", "",
     ]
+    if photo_rel:
+        body += ["## Galería", "", "| Fotografía |", "| :---: |",
+                 f"| ![{n.title} - Fotografía]({photo_rel}) |", ""]
+    body += ["## Elaboraciones", ""]
     elabs = r.get("elaboraciones") or []
     unnamed = 0
     for e in elabs:
@@ -235,8 +244,10 @@ def _indices(notes: list[Note]) -> dict[str, str]:
 
 
 def _readme(notes: list[Note]) -> str:
+    with_photo = sum(1 for n in notes if n.photo)
     lines = [
         f"# Scoolinary · Recetario ({len(notes)} recetas)", "",
+        f"📷 {with_photo} de {len(notes)} recetas con foto.", "",
         "> Recetas extraídas de los recetarios PDF de los cursos de Scoolinary, normalizadas "
         "con el estándar del Recetario Personal.", "", "---", "", "## 🧭 Índices Temáticos", "",
         "- [🌍 **Índice por Cocina / País**](./indices/por-cocina.md)",
@@ -290,10 +301,19 @@ def _prepare_out(out: Path) -> None:
                               encoding="utf-8")
 
 
-def render_collection(caches: list[dict], out: Path) -> int:
-    """Wipe and regenerate ``out``. Returns the number of notes written."""
-    notes = _build_notes(caches)
+def render_collection(caches: list[dict], out: Path, media_dir: Path | None = None) -> int:
+    """Wipe and regenerate ``out``. Returns the number of notes written.
+
+    ``media_dir`` is the cache root holding ``media/<course>/*.jpg``; photos used by notes are
+    copied to ``out/media/<course>/``.
+    """
+    notes = _build_notes(caches, media_dir)
     _prepare_out(out)
+    for n in notes:
+        if n.photo:
+            dest = out / n.photo
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(media_dir / n.photo, dest)
     for i, n in enumerate(notes):
         prev = notes[i - 1] if i > 0 else None
         nxt = notes[i + 1] if i + 1 < len(notes) else None
