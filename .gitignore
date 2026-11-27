@@ -10,3 +10,5 @@ downloads/
 .*_cookies.json
 logs/
 .cache/
+.pi/alcance.txt
+graphify-out/
